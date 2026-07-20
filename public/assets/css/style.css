@@ -549,6 +549,61 @@ body {
     box-shadow: 0 6px 20px rgba(33, 150, 243, 0.4);
 }
 
+/* Fee display styles */
+.fee-display {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 12px 15px;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: fadeIn 0.3s ease;
+}
+
+.fee-label {
+    font-weight: 600;
+    color: #6c757d;
+    font-size: 14px;
+}
+
+.fee-amount {
+    font-weight: 700;
+    color: #e74c3c;
+    font-size: 16px;
+}
+
+.fee-info {
+    font-size: 12px;
+    color: #28a745;
+    font-weight: 500;
+}
+
+.total-display {
+    background: #e3f2fd;
+    border: 1px solid #bbdefb;
+    border-radius: 8px;
+    padding: 12px 15px;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: fadeIn 0.3s ease;
+}
+
+.total-label {
+    font-weight: 600;
+    color: #1976d2;
+    font-size: 14px;
+}
+
+.total-amount {
+    font-weight: 700;
+    color: #0d47a1;
+    font-size: 16px;
+}
+
 /* History card */
 .history-card {
     background: white;

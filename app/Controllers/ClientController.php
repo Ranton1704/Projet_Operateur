@@ -42,6 +42,7 @@ class ClientController extends BaseController {
 
         $compteModel = new CompteModel();
         $operationModel = new OperationModel();
+        $baremeModel = new BaremeFraisModel();
 
         $data['compte'] = $compteModel->where('numero_telephone', $phone)->first();
         
@@ -70,6 +71,10 @@ class ClientController extends BaseController {
         }
 
         $data['historique'] = $query->orderBy('date_operation', 'DESC')->findAll();
+
+        // Récupération des barèmes de frais pour le calcul en temps réel
+        $data['baremes_retrait'] = $baremeModel->where('id_type_operation', 2)->findAll();
+        $data['baremes_transfert'] = $baremeModel->where('id_type_operation', 3)->findAll();
 
         return view('client/space', $data);
     }

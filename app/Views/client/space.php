@@ -83,7 +83,12 @@
                         <input type="hidden" name="type" value="depot">
                         <div class="form-group">
                             <label class="form-label">Montant du dépôt (Ar)</label>
-                            <input type="number" name="montant" class="form-control" placeholder="Montant" required min="1">
+                            <input type="number" name="montant" class="form-control" placeholder="Montant" required min="1" id="depot-montant">
+                        </div>
+                        <div class="fee-display" id="depot-fee" style="display: none;">
+                            <span class="fee-label">Frais appliqués :</span>
+                            <span class="fee-amount">0 Ar</span>
+                            <span class="fee-info">(Gratuit)</span>
                         </div>
                         <button type="submit" class="btn btn-success">
                             <i class="bi bi-check-lg"></i>
@@ -97,7 +102,16 @@
                         <input type="hidden" name="type" value="retrait">
                         <div class="form-group">
                             <label class="form-label">Montant à retirer (Ar)</label>
-                            <input type="number" name="montant" class="form-control" placeholder="Montant" required min="100">
+                            <input type="number" name="montant" class="form-control" placeholder="Montant" required min="100" id="retrait-montant">
+                        </div>
+                        <div class="fee-display" id="retrait-fee" style="display: none;">
+                            <span class="fee-label">Frais appliqués :</span>
+                            <span class="fee-amount">0 Ar</span>
+                            <span class="fee-info"></span>
+                        </div>
+                        <div class="total-display" id="retrait-total" style="display: none;">
+                            <span class="total-label">Total à débiter :</span>
+                            <span class="total-amount">0 Ar</span>
                         </div>
                         <button type="submit" class="btn btn-warning">
                             <i class="bi bi-check-lg"></i>
@@ -115,7 +129,16 @@
                         </div>
                         <div class="form-group">
                             <label class="form-label">Montant à transférer (Ar)</label>
-                            <input type="number" name="montant" class="form-control" placeholder="Montant" required min="100">
+                            <input type="number" name="montant" class="form-control" placeholder="Montant" required min="100" id="transfert-montant">
+                        </div>
+                        <div class="fee-display" id="transfert-fee" style="display: none;">
+                            <span class="fee-label">Frais appliqués :</span>
+                            <span class="fee-amount">0 Ar</span>
+                            <span class="fee-info"></span>
+                        </div>
+                        <div class="total-display" id="transfert-total" style="display: none;">
+                            <span class="total-label">Total à débiter :</span>
+                            <span class="total-amount">0 Ar</span>
                         </div>
                         <button type="submit" class="btn btn-primary">
                             <i class="bi bi-send"></i>
@@ -208,6 +231,95 @@
     </div>
 </div>
 
+<script>
+    // Barèmes de frais depuis PHP
+    const baremesRetrait = <?php echo json_encode($baremes_retrait ?? []); ?>;
+    const baremesTransfert = <?php echo json_encode($baremes_transfert ?? []); ?>;
+
+    // Fonction pour calculer les frais selon le barème
+    function calculerFrais(montant, baremes) {
+        if (!baremes || baremes.length === 0) return 0;
+        
+        for (const bareme of baremes) {
+            if (montant >= bareme.montant_min && montant <= bareme.montant_max) {
+                return parseFloat(bareme.frais);
+            }
+        }
+        return 0;
+    }
+
+    // Fonction pour formater les montants
+    function formatMontant(montant) {
+        return new Intl.NumberFormat('fr-FR').format(montant) + ' Ar';
+    }
+
+    // Écouteur pour le dépôt
+    const depotMontant = document.getElementById('depot-montant');
+    const depotFee = document.getElementById('depot-fee');
+    
+    if (depotMontant) {
+        depotMontant.addEventListener('input', function() {
+            const montant = parseFloat(this.value) || 0;
+            if (montant > 0) {
+                depotFee.style.display = 'flex';
+                depotFee.querySelector('.fee-amount').textContent = '0 Ar';
+                depotFee.querySelector('.fee-info').textContent = '(Gratuit)';
+            } else {
+                depotFee.style.display = 'none';
+            }
+        });
+    }
+
+    // Écouteur pour le retrait
+    const retraitMontant = document.getElementById('retrait-montant');
+    const retraitFee = document.getElementById('retrait-fee');
+    const retraitTotal = document.getElementById('retrait-total');
+    
+    if (retraitMontant) {
+        retraitMontant.addEventListener('input', function() {
+            const montant = parseFloat(this.value) || 0;
+            if (montant > 0) {
+                const frais = calculerFrais(montant, baremesRetrait);
+                const total = montant + frais;
+                
+                retraitFee.style.display = 'flex';
+                retraitFee.querySelector('.fee-amount').textContent = formatMontant(frais);
+                retraitFee.querySelector('.fee-info').textContent = frais > 0 ? '' : '(Gratuit)';
+                
+                retraitTotal.style.display = 'flex';
+                retraitTotal.querySelector('.total-amount').textContent = formatMontant(total);
+            } else {
+                retraitFee.style.display = 'none';
+                retraitTotal.style.display = 'none';
+            }
+        });
+    }
+
+    // Écouteur pour le transfert
+    const transfertMontant = document.getElementById('transfert-montant');
+    const transfertFee = document.getElementById('transfert-fee');
+    const transfertTotal = document.getElementById('transfert-total');
+    
+    if (transfertMontant) {
+        transfertMontant.addEventListener('input', function() {
+            const montant = parseFloat(this.value) || 0;
+            if (montant > 0) {
+                const frais = calculerFrais(montant, baremesTransfert);
+                const total = montant + frais;
+                
+                transfertFee.style.display = 'flex';
+                transfertFee.querySelector('.fee-amount').textContent = formatMontant(frais);
+                transfertFee.querySelector('.fee-info').textContent = frais > 0 ? '' : '(Gratuit)';
+                
+                transfertTotal.style.display = 'flex';
+                transfertTotal.querySelector('.total-amount').textContent = formatMontant(total);
+            } else {
+                transfertFee.style.display = 'none';
+                transfertTotal.style.display = 'none';
+            }
+        });
+    }
+</script>
 <script src="/assets/js/space.js"></script>
 </body>
 </html>
