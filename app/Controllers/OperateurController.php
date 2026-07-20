@@ -222,13 +222,25 @@ public function supprimerFrais($id) {
         if (!session()->get('is_operator')) return redirect()->to('/operateur/login');
 
         $prefixeAutreOperateurModel = new PrefixeAutreOperateurModel();
+        $prefixeModel = new PrefixeModel();
         $idOperateur = $this->request->getPost('id_autre_operateur');
         $prefixe = $this->request->getPost('prefixe');
 
         if ($idOperateur && $prefixe) {
+            // Vérifier si le préfixe existe déjà dans la table prefixes
+            $prefixeExist = $prefixeModel->where('prefixe', $prefixe)->first();
+            if (!$prefixeExist) {
+                // Ajouter le préfixe s'il n'existe pas
+                $prefixeModel->insert(['prefixe' => $prefixe]);
+                $idPrefixe = $prefixeModel->getInsertID();
+            } else {
+                $idPrefixe = $prefixeExist['id'];
+            }
+            
+            // Insérer l'association
             $prefixeAutreOperateurModel->insert([
                 'id_autre_operateur' => $idOperateur,
-                'prefixe' => $prefixe
+                'id_prefixe' => $idPrefixe
             ]);
         }
         return redirect()->to('/operateur/autres-operateurs')->with('success', 'Préfixe ajouté avec succès !');
