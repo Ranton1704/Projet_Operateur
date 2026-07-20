@@ -76,6 +76,10 @@
                         <i class="bi bi-send"></i>
                         Transfert
                     </button>
+                    <button class="tab-btn" data-tab="transfert-multiple">
+                        <i class="bi bi-send-plus"></i>
+                        Transfert Multiple
+                    </button>
                 </div>
 
                 <div class="tab-content active" id="depot">
@@ -104,6 +108,13 @@
                             <label class="form-label">Montant à retirer (Ar)</label>
                             <input type="number" name="montant" class="form-control" placeholder="Montant" required min="100" id="retrait-montant">
                         </div>
+                        <div class="form-group" style="margin-top: 15px;">
+                            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                <input type="checkbox" name="inclure_frais_retrait" value="1" id="inclure-frais-retrait">
+                                <span style="font-size: 14px; color: #2c3e50;">Inclure les frais dans le montant à retirer</span>
+                            </label>
+                            <small style="color: #7f8c8d; font-size: 12px; margin-left: 24px;">Si coché, les frais seront déduits du montant demandé</small>
+                        </div>
                         <div class="fee-display" id="retrait-fee" style="display: none;">
                             <span class="fee-label">Frais appliqués :</span>
                             <span class="fee-amount">0 Ar</span>
@@ -112,6 +123,10 @@
                         <div class="total-display" id="retrait-total" style="display: none;">
                             <span class="total-label">Total à débiter :</span>
                             <span class="total-amount">0 Ar</span>
+                        </div>
+                        <div class="amount-received" id="retrait-recu" style="display: none; background: #e8f5e9; padding: 12px; border-radius: 8px; margin-top: 15px;">
+                            <span class="received-label">Montant reçu :</span>
+                            <span class="received-amount" style="color: #66BB6A; font-weight: 700;">0 Ar</span>
                         </div>
                         <button type="submit" class="btn btn-warning">
                             <i class="bi bi-check-lg"></i>
@@ -143,6 +158,42 @@
                         <button type="submit" class="btn btn-primary">
                             <i class="bi bi-send"></i>
                             Envoyer l'argent
+                        </button>
+                    </form>
+                </div>
+
+                <div class="tab-content" id="transfert-multiple">
+                    <form action="<?= base_url('client/transfert-multiple') ?>" method="POST">
+                        <div class="form-group">
+                            <label class="form-label">Numéros des destinataires (un par ligne)</label>
+                            <textarea name="destinataires" class="form-control" rows="4" placeholder="037XXXXXXX&#10;038XXXXXXX&#10;032XXXXXXX" required id="destinataires-multiple"></textarea>
+                            <small style="color: #7f8c8d; font-size: 12px;">Entrez un numéro par ligne</small>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Montant total à transférer (Ar)</label>
+                            <input type="number" name="montant_total" class="form-control" placeholder="Montant total" required min="100" id="montant-total-multiple">
+                        </div>
+                        <div id="preview-multiple" style="display: none; background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                            <div style="font-weight: 600; color: #2c3e50; margin-bottom: 10px;">
+                                <i class="bi bi-info-circle"></i> Prévisualisation
+                            </div>
+                            <div style="font-size: 14px; color: #7f8c8d;">
+                                <div>Nombre de destinataires: <strong id="nb-destinataires">0</strong></div>
+                                <div>Montant par destinataire: <strong id="montant-par-destinataire">0 Ar</strong></div>
+                            </div>
+                        </div>
+                        <div class="fee-display" id="transfert-multiple-fee" style="display: none;">
+                            <span class="fee-label">Frais par destinataire :</span>
+                            <span class="fee-amount">0 Ar</span>
+                            <span class="fee-info"></span>
+                        </div>
+                        <div class="total-display" id="transfert-multiple-total" style="display: none;">
+                            <span class="total-label">Total à débiter :</span>
+                            <span class="total-amount">0 Ar</span>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-send-plus"></i>
+                            Envoyer à tous
                         </button>
                     </form>
                 </div>
@@ -274,25 +325,94 @@
     const retraitMontant = document.getElementById('retrait-montant');
     const retraitFee = document.getElementById('retrait-fee');
     const retraitTotal = document.getElementById('retrait-total');
+    const retraitRecu = document.getElementById('retrait-recu');
+    const inclureFraisRetrait = document.getElementById('inclure-frais-retrait');
+    
+    function updateRetraitCalculs() {
+        const montant = parseFloat(retraitMontant?.value) || 0;
+        const inclureFrais = inclureFraisRetrait?.checked || false;
+        
+        if (montant > 0) {
+            const frais = calculerFrais(montant, baremesRetrait);
+            let total, recu;
+            
+            if (inclureFrais) {
+                total = montant;
+                recu = montant - frais;
+            } else {
+                total = montant + frais;
+                recu = montant;
+            }
+            
+            retraitFee.style.display = 'flex';
+            retraitFee.querySelector('.fee-amount').textContent = formatMontant(frais);
+            retraitFee.querySelector('.fee-info').textContent = frais > 0 ? '' : '(Gratuit)';
+            
+            retraitTotal.style.display = 'flex';
+            retraitTotal.querySelector('.total-amount').textContent = formatMontant(total);
+            
+            retraitRecu.style.display = 'block';
+            retraitRecu.querySelector('.received-amount').textContent = formatMontant(recu);
+        } else {
+            retraitFee.style.display = 'none';
+            retraitTotal.style.display = 'none';
+            retraitRecu.style.display = 'none';
+        }
+    }
     
     if (retraitMontant) {
-        retraitMontant.addEventListener('input', function() {
-            const montant = parseFloat(this.value) || 0;
-            if (montant > 0) {
-                const frais = calculerFrais(montant, baremesRetrait);
-                const total = montant + frais;
-                
-                retraitFee.style.display = 'flex';
-                retraitFee.querySelector('.fee-amount').textContent = formatMontant(frais);
-                retraitFee.querySelector('.fee-info').textContent = frais > 0 ? '' : '(Gratuit)';
-                
-                retraitTotal.style.display = 'flex';
-                retraitTotal.querySelector('.total-amount').textContent = formatMontant(total);
-            } else {
-                retraitFee.style.display = 'none';
-                retraitTotal.style.display = 'none';
-            }
-        });
+        retraitMontant.addEventListener('input', updateRetraitCalculs);
+    }
+    
+    if (inclureFraisRetrait) {
+        inclureFraisRetrait.addEventListener('change', updateRetraitCalculs);
+    }
+
+    // Écouteur pour le transfert multiple
+    const destinatairesMultiple = document.getElementById('destinataires-multiple');
+    const montantTotalMultiple = document.getElementById('montant-total-multiple');
+    const previewMultiple = document.getElementById('preview-multiple');
+    const nbDestinataires = document.getElementById('nb-destinataires');
+    const montantParDestinataire = document.getElementById('montant-par-destinataire');
+    const transfertMultipleFee = document.getElementById('transfert-multiple-fee');
+    const transfertMultipleTotal = document.getElementById('transfert-multiple-total');
+
+    function updateTransfertMultipleCalculs() {
+        const destinatairesText = destinatairesMultiple?.value || '';
+        const montantTotal = parseFloat(montantTotalMultiple?.value) || 0;
+        
+        const destinataires = destinatairesText.split('\n').filter(d => d.trim() !== '');
+        const nbDest = destinataires.length;
+        
+        if (nbDest > 0 && montantTotal > 0) {
+            const montantParDest = montantTotal / nbDest;
+            const fraisParDest = calculerFrais(montantParDest, baremesTransfert);
+            const totalFrais = fraisParDest * nbDest;
+            const totalADebiter = montantTotal + totalFrais;
+            
+            previewMultiple.style.display = 'block';
+            nbDestinataires.textContent = nbDest;
+            montantParDestinataire.textContent = formatMontant(montantParDest);
+            
+            transfertMultipleFee.style.display = 'flex';
+            transfertMultipleFee.querySelector('.fee-amount').textContent = formatMontant(fraisParDest);
+            transfertMultipleFee.querySelector('.fee-info').textContent = `× ${nbDest} = ${formatMontant(totalFrais)}`;
+            
+            transfertMultipleTotal.style.display = 'flex';
+            transfertMultipleTotal.querySelector('.total-amount').textContent = formatMontant(totalADebiter);
+        } else {
+            previewMultiple.style.display = 'none';
+            transfertMultipleFee.style.display = 'none';
+            transfertMultipleTotal.style.display = 'none';
+        }
+    }
+    
+    if (destinatairesMultiple) {
+        destinatairesMultiple.addEventListener('input', updateTransfertMultipleCalculs);
+    }
+    
+    if (montantTotalMultiple) {
+        montantTotalMultiple.addEventListener('input', updateTransfertMultipleCalculs);
     }
 
     // Écouteur pour le transfert
