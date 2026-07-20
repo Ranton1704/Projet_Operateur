@@ -13,7 +13,7 @@
             <div class="card shadow border-0">
                 <div class="card-body p-5 text-center">
                     <h2 class="fw-bold mb-2 text-primary">Portail Opérateur</h2>
-                    <p class="text-muted mb-4">Authentification administrative (Pré-remplie)</p>
+                    <p class="text-muted mb-4">Authentification administrative</p>
 
                     <!-- Affichage de l'erreur si les identifiants échouent -->
                     <?php if (session()->getFlashdata('error')): ?>

@@ -18,3 +18,5 @@ $routes->post('operateur/login', 'OperateurController::authentifier');
 $routes->get('operateur/logout', 'OperateurController::logout');
 $routes->get('operateur', 'OperateurController::dashboard');
 $routes->post('operateur/prefixe', 'OperateurController::ajouterPrefixe');
+$routes->post('operateur/frais/enregistrer', 'OperateurController::enregistrerFrais');
+$routes->get('operateur/frais/supprimer/(:num)', 'OperateurController::supprimerFrais/$1');
