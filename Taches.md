@@ -120,3 +120,23 @@
 * Affichage du montant
 * Affichage des frais appliqués
 * Affichage de la date de l'opération
+
+## Version 2 
+
+### 1. Base de données & Modèles
+* Ajouter le champ ou la table pour distinguer les préfixes des autres opérateurs
+* Ajouter la configuration du pourcentage de commission supplémentaire
+* Mettre à jour l'enregistrement des transactions pour lier les transferts externes à l'opérateur tiers
+
+### 2. Module Opérateur
+* Créer l'interface de configuration des préfixes des autres opérateurs (ex: 032, 031)
+* Ajouter le formulaire de paramétrage du pourcentage de commission additionnel
+* Mettre à jour la page de suivi financier pour séparer les gains internes et externes
+* Créer la page de situation affichant les montants totaux à reverser à chaque opérateur
+
+### 3. Module Client
+* Adapter le formulaire de transfert pour détecter et accepter les numéros des autres opérateurs
+* Intégrer le calcul automatique du pourcentage de commission supplémentaire sur les transferts sortants vers les tiers
+* Ajouter option => mettre frais de retrait lors de l'envoi 
+* champ d'envoi multiple vers plusieurs numéro (champ de montant pour chaque numéro)
+
