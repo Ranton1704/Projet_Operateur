@@ -326,6 +326,12 @@ class ClientController extends BaseController {
                 'frais'               => $frais
             ];
 
+            if ($operatorInfo) {
+                $operationData['est_autre_operateur'] = 1;
+                $operationData['id_autre_operateur'] = $operatorInfo['id_autre_operateur'];
+                $operationData['commission_supplementaire'] = $commission;
+            }
+
             $operationModel->insert($operationData);
             $transfertsReussis++;
         }
