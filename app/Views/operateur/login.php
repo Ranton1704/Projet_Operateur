@@ -2,46 +2,54 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Administration - Connexion</title>
-    <!-- Bootstrap 5 CDN -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>Portail Opérateur - Connexion</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 </head>
-<body class="bg-light">
-<div class="container">
-    <div class="row justify-content-center align-items-center min-vh-100">
-        <div class="col-md-5">
-            <div class="card shadow border-0">
-                <div class="card-body p-5 text-center">
-                    <h2 class="fw-bold mb-2 text-primary">Portail Opérateur</h2>
-                    <p class="text-muted mb-4">Authentification administrative</p>
+<body>
+<div class="login-container">
+    <div class="login-card">
+        <!-- Logo -->
+        <div class="logo-container">
+            <svg class="logo-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+            </svg>
+        </div>
 
-                    <!-- Affichage de l'erreur si les identifiants échouent -->
-                    <?php if (session()->getFlashdata('error')): ?>
-                        <div class="alert alert-danger text-start py-2" role="alert">
-                            <?= session()->getFlashdata('error') ?>
-                        </div>
-                    <?php endif; ?>
+        <h1 class="login-title">Portail Opérateur</h1>
+        <p class="login-subtitle">Authentification administrative</p>
 
-                    <form action="<?= base_url('operateur/login') ?>" method="POST">
-                        <div class="mb-3 text-start">
-                            <label class="form-label text-secondary fw-semibold">Identifiant de l'administrateur</label>
-                            <!-- Valeur pré-remplie -->
-                            <input type="text" name="username" class="form-control form-control-lg" value="admin" required>
-                        </div>
-                        <div class="mb-4 text-start">
-                            <label class="form-label text-secondary fw-semibold">Mot de passe</label>
-                            <!-- Valeur pré-remplie -->
-                            <input type="password" name="password" class="form-control form-control-lg" value="admin123" required>
-                        </div>
-                        <button type="submit" class="btn btn-primary btn-lg w-100 shadow-sm">Se connecter</button>
-                    </form>
+        <!-- Affichage de l'erreur si les identifiants échouent -->
+        <?php if (session()->getFlashdata('error')): ?>
+            <div class="alert-error">
+                <i class="bi bi-exclamation-circle"></i>
+                <?= session()->getFlashdata('error') ?>
+            </div>
+        <?php endif; ?>
+
+        <form action="<?= base_url('operateur/login') ?>" method="POST">
+            <div class="form-group">
+                <label for="username" class="form-label">Identifiant de l'administrateur</label>
+                <div class="phone-input-group">
+                    <input type="text" name="username" class="phone-input" id="username" value="admin" required>
                 </div>
             </div>
-            <div class="text-center mt-3">
-                <a href="<?= base_url('/') ?>" class="text-decoration-none text-secondary btn btn-link btn-sm">← Retour à l'accueil</a>
+            <div class="form-group">
+                <label for="password" class="form-label">Mot de passe</label>
+                <div class="phone-input-group">
+                    <input type="password" name="password" class="phone-input" id="password" value="admin123" required>
+                </div>
             </div>
-        </div>
+            <button type="submit" class="btn-submit">
+                <i class="bi bi-box-arrow-in-right"></i>
+                Se connecter
+            </button>
+        </form>
     </div>
+    <a href="<?= base_url('/') ?>" class="operator-link">
+        <i class="bi bi-arrow-left"></i>
+        Retour à l'accueil
+    </a>
 </div>
 </body>
 </html>
