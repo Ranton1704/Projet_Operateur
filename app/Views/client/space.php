@@ -132,40 +132,78 @@
                 <i class="bi bi-clock-history"></i>
                 Historique des transactions
             </div>
-            <table class="history-table">
-                <thead>
-                    <tr>
-                        <th>Date & Heure</th>
-                        <th>Type</th>
-                        <th>Expéditeur</th>
-                        <th>Destinataire</th>
-                        <th>Montant (Ar)</th>
-                        <th>Frais Appliqués (Ar)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if(empty($historique)): ?>
-                        <tr><td colspan="6" class="empty-state">Aucune transaction enregistrée.</td></tr>
-                    <?php else: ?>
-                        <?php foreach($historique as $op): ?>
+            <div style="padding: 20px;">
+                <!-- Filtres -->
+                <form action="<?= base_url('client/space') ?>" method="GET" style="margin-bottom: 20px; padding: 20px; background: #f8f9fa; border-radius: 12px;">
+                    <div class="cards-grid" style="margin-bottom: 0; gap: 15px;">
+                        <div style="grid-column: span 3;">
+                            <label style="font-size: 13px; font-weight: 600; color: #2c3e50; margin-bottom: 8px; display: block;">Date de début</label>
+                            <input type="date" name="date_debut" class="form-control" value="<?= isset($_GET['date_debut']) ? esc($_GET['date_debut']) : '' ?>">
+                        </div>
+                        <div style="grid-column: span 3;">
+                            <label style="font-size: 13px; font-weight: 600; color: #2c3e50; margin-bottom: 8px; display: block;">Date de fin</label>
+                            <input type="date" name="date_fin" class="form-control" value="<?= isset($_GET['date_fin']) ? esc($_GET['date_fin']) : '' ?>">
+                        </div>
+                        <div style="grid-column: span 3;">
+                            <label style="font-size: 13px; font-weight: 600; color: #2c3e50; margin-bottom: 8px; display: block;">Type d'opération</label>
+                            <select name="type_operation" class="form-control">
+                                <option value="">Tous</option>
+                                <option value="1" <?= isset($_GET['type_operation']) && $_GET['type_operation'] == '1' ? 'selected' : '' ?>>Dépôt</option>
+                                <option value="2" <?= isset($_GET['type_operation']) && $_GET['type_operation'] == '2' ? 'selected' : '' ?>>Retrait</option>
+                                <option value="3" <?= isset($_GET['type_operation']) && $_GET['type_operation'] == '3' ? 'selected' : '' ?>>Transfert</option>
+                            </select>
+                        </div>
+                        <div style="grid-column: span 3;">
+                            <label style="font-size: 13px; font-weight: 600; color: #2c3e50; margin-bottom: 8px; display: block;">&nbsp;</label>
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-primary" style="flex: 1;">
+                                    <i class="bi bi-funnel"></i> Filtrer
+                                </button>
+                                <a href="<?= base_url('client/space') ?>" class="btn btn-secondary" style="padding: 14px 20px; text-decoration: none;">
+                                    <i class="bi bi-x-circle"></i> Reset
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+
+                <div style="max-height: 500px; overflow-y: auto;">
+                    <table class="history-table">
+                        <thead>
                             <tr>
-                                <td><?= esc($op['date_operation']) ?></td>
-                                <td>
-                                    <?php 
-                                        if($op['id_type_operation'] == 1) echo '<span class="badge badge-depot"><i class="bi bi-download"></i> Dépôt</span>';
-                                        elseif($op['id_type_operation'] == 2) echo '<span class="badge badge-retrait"><i class="bi bi-upload"></i> Retrait</span>';
-                                        else echo '<span class="badge badge-transfert"><i class="bi bi-send"></i> Transfert</span>';
-                                    ?>
-                                </td>
-                                <td><?= esc($op['numero_expediteur']) ?></td>
-                                <td><?= $op['numero_destinataire'] ? esc($op['numero_destinataire']) : '-' ?></td>
-                                <td class="fw-bold"><?= number_format($op['montant'], 0, ',', ' ') ?></td>
-                                <td><?= $op['frais'] > 0 ? '+ ' . number_format($op['frais'], 0, ',', ' ') : '0' ?></td>
+                                <th>Date & Heure</th>
+                                <th>Type</th>
+                                <th>Expéditeur</th>
+                                <th>Destinataire</th>
+                                <th>Montant (Ar)</th>
+                                <th>Frais Appliqués (Ar)</th>
                             </tr>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </tbody>
-            </table>
+                        </thead>
+                        <tbody>
+                            <?php if(empty($historique)): ?>
+                                <tr><td colspan="6" class="empty-state">Aucune transaction enregistrée.</td></tr>
+                            <?php else: ?>
+                                <?php foreach($historique as $op): ?>
+                                    <tr>
+                                        <td><?= esc($op['date_operation']) ?></td>
+                                        <td>
+                                            <?php 
+                                                if($op['id_type_operation'] == 1) echo '<span class="badge badge-depot"><i class="bi bi-download"></i> Dépôt</span>';
+                                                elseif($op['id_type_operation'] == 2) echo '<span class="badge badge-retrait"><i class="bi bi-upload"></i> Retrait</span>';
+                                                else echo '<span class="badge badge-transfert"><i class="bi bi-send"></i> Transfert</span>';
+                                            ?>
+                                        </td>
+                                        <td><?= esc($op['numero_expediteur']) ?></td>
+                                        <td><?= $op['numero_destinataire'] ? esc($op['numero_destinataire']) : '-' ?></td>
+                                        <td class="fw-bold"><?= number_format($op['montant'], 0, ',', ' ') ?></td>
+                                        <td><?= $op['frais'] > 0 ? '+ ' . number_format($op['frais'], 0, ',', ' ') : '0' ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 </div>

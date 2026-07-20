@@ -44,10 +44,32 @@ class ClientController extends BaseController {
         $operationModel = new OperationModel();
 
         $data['compte'] = $compteModel->where('numero_telephone', $phone)->first();
-        $data['historique'] = $operationModel->where('numero_expediteur', $phone)
-                                             ->orWhere('numero_destinataire', $phone)
-                                             ->orderBy('date_operation', 'DESC')
-                                             ->findAll();
+        
+        // Récupération des filtres
+        $dateDebut = $this->request->getGet('date_debut');
+        $dateFin = $this->request->getGet('date_fin');
+        $typeOperation = $this->request->getGet('type_operation');
+
+        // Construction de la requête avec filtres
+        $query = $operationModel->where('numero_expediteur', $phone)
+                                ->orWhere('numero_destinataire', $phone);
+        
+        // Filtre par date de début
+        if ($dateDebut) {
+            $query = $query->where('date_operation >=', $dateDebut);
+        }
+        
+        // Filtre par date de fin
+        if ($dateFin) {
+            $query = $query->where('date_operation <=', $dateFin . ' 23:59:59');
+        }
+        
+        // Filtre par type d'opération
+        if ($typeOperation) {
+            $query = $query->where('id_type_operation', $typeOperation);
+        }
+
+        $data['historique'] = $query->orderBy('date_operation', 'DESC')->findAll();
 
         return view('client/space', $data);
     }
