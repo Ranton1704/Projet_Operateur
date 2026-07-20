@@ -128,6 +128,27 @@
                     Frais
                 </a>
             </li>
+            <li style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.2);">
+                <span style="color: rgba(255,255,255,0.7); font-size: 11px; padding: 0 20px; text-transform: uppercase; letter-spacing: 1px;">Version 2</span>
+            </li>
+            <li>
+                <a href="<?= base_url('operateur/autres-operateurs') ?>" class="<?= uri_string() === 'operateur/autres-operateurs' ? 'active' : '' ?>">
+                    <i class="bi bi-building"></i>
+                    Autres Opérateurs
+                </a>
+            </li>
+            <li>
+                <a href="<?= base_url('operateur/gains-separes') ?>" class="<?= uri_string() === 'operateur/gains-separes' ? 'active' : '' ?>">
+                    <i class="bi bi-graph-up-arrow"></i>
+                    Gains Séparés
+                </a>
+            </li>
+            <li>
+                <a href="<?= base_url('operateur/situation-operateurs') ?>" class="<?= uri_string() === 'operateur/situation-operateurs' ? 'active' : '' ?>">
+                    <i class="bi bi-cash-stack"></i>
+                    Situation Opérateurs
+                </a>
+            </li>
         </ul>
         <div class="sidebar-footer">
             <a href="<?= base_url('client/login') ?>" class="sidebar-menu" style="display: block; margin-bottom: 10px;">

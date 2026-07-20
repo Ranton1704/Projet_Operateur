@@ -4,6 +4,7 @@ use App\Models\CompteModel;
 use App\Models\PrefixeModel;
 use App\Models\BaremeFraisModel;
 use App\Models\OperationModel;
+use App\Models\PrefixeAutreOperateurModel;
 
 class ClientController extends BaseController {
     
@@ -87,10 +88,12 @@ class ClientController extends BaseController {
         $type = $this->request->getPost('type'); // 'depot', 'retrait', 'transfert'
         $montant = floatval($this->request->getPost('montant'));
         $destinataire = $this->request->getPost('destinataire') ?: null;
+        $inclureFraisRetrait = $this->request->getPost('inclure_frais_retrait') === '1';
 
         $compteModel = new CompteModel();
         $baremeModel = new BaremeFraisModel();
         $operationModel = new OperationModel();
+        $prefixeAutreOperateurModel = new PrefixeAutreOperateurModel();
 
         $compteExp = $compteModel->where('numero_telephone', $expediteur)->first();
 
@@ -102,20 +105,42 @@ class ClientController extends BaseController {
         $fraisRow = $baremeModel->getFrais($idTypeOp, $montant);
         $frais = $fraisRow ? floatval($fraisRow['frais']) : 0.0;
 
+        // Variables pour transfert vers autre opérateur
+        $estAutreOperateur = 0;
+        $idAutreOperateur = null;
+        $commissionSupplementaire = 0.0;
+
         // Logique métier des transactions
         if ($type === 'depot') {
             $compteModel->update($compteExp['id'], ['solde' => $compteExp['solde'] + $montant]);
         } 
         elseif ($type === 'retrait') {
-            if ($compteExp['solde'] < ($montant + $frais)) {
-                return redirect()->back()->with('error', 'Solde insuffisant (Frais inclus).');
+            $totalADebiter = $inclureFraisRetrait ? ($montant + $frais) : $montant;
+            
+            if ($compteExp['solde'] < $totalADebiter) {
+                return redirect()->back()->with('error', 'Solde insuffisant.');
             }
-            $compteModel->update($compteExp['id'], ['solde' => $compteExp['solde'] - ($montant + $frais)]);
+            
+            $montantFinal = $inclureFraisRetrait ? $montant : ($montant - $frais);
+            $compteModel->update($compteExp['id'], ['solde' => $compteExp['solde'] - $totalADebiter]);
         } 
         elseif ($type === 'transfert') {
+            // Vérifier si le destinataire appartient à un autre opérateur
+            $prefixeDest = substr($destinataire, 0, 3);
+            $autreOperateur = $prefixeAutreOperateurModel->isAutreOperateur($prefixeDest);
+            
+            if ($autreOperateur) {
+                $estAutreOperateur = 1;
+                $idAutreOperateur = $autreOperateur['id_autre_operateur'];
+                // Calcul de la commission supplémentaire en pourcentage
+                $commissionSupplementaire = ($montant * $autreOperateur['commission_pourcentage']) / 100;
+                $frais += $commissionSupplementaire;
+            }
+
             if ($compteExp['solde'] < ($montant + $frais)) {
                 return redirect()->back()->with('error', 'Solde insuffisant pour le transfert.');
             }
+            
             $compteDest = $compteModel->where('numero_telephone', $destinataire)->first();
             if (!$compteDest) {
                 return redirect()->back()->with('error', 'Le numéro destinataire n\'existe pas.');
@@ -127,15 +152,119 @@ class ClientController extends BaseController {
         }
 
         // Sauvegarde dans l'historique des transactions
-        $operationModel->insert([
+        $operationData = [
             'id_type_operation'  => $idTypeOp,
             'numero_expediteur'   => $expediteur,
             'numero_destinataire' => $destinataire,
             'montant'             => $montant,
             'frais'               => $frais
-        ]);
+        ];
+
+        // Ajouter les champs pour autre opérateur si applicable
+        if ($estAutreOperateur) {
+            $operationData['est_autre_operateur'] = $estAutreOperateur;
+            $operationData['id_autre_operateur'] = $idAutreOperateur;
+            $operationData['commission_supplementaire'] = $commissionSupplementaire;
+        }
+
+        $operationModel->insert($operationData);
 
         return redirect()->to('/client/space')->with('success', 'Opération réussie !');
+    }
+
+    public function transfertMultiple() {
+        $session = session();
+        $expediteur = $session->get('client_phone');
+        if (!$expediteur) return redirect()->to('/client/login');
+
+        $destinatairesText = $this->request->getPost('destinataires');
+        $montantTotal = floatval($this->request->getPost('montant_total'));
+
+        $compteModel = new CompteModel();
+        $baremeModel = new BaremeFraisModel();
+        $operationModel = new OperationModel();
+        $prefixeAutreOperateurModel = new PrefixeAutreOperateurModel();
+
+        $compteExp = $compteModel->where('numero_telephone', $expediteur)->first();
+
+        // Parser les destinataires
+        $destinataires = array_filter(array_map('trim', explode("\n", $destinatairesText)));
+        
+        if (empty($destinataires)) {
+            return redirect()->back()->with('error', 'Veuillez entrer au moins un destinataire.');
+        }
+
+        $montantParDestinataire = $montantTotal / count($destinataires);
+        
+        // Calculer les frais totaux
+        $fraisRow = $baremeModel->getFrais(3, $montantParDestinataire);
+        $fraisParDestinataire = $fraisRow ? floatval($fraisRow['frais']) : 0.0;
+        $totalFrais = $fraisParDestinataire * count($destinataires);
+        $totalADebiter = $montantTotal + $totalFrais;
+
+        // Vérifier le solde
+        if ($compteExp['solde'] < $totalADebiter) {
+            return redirect()->back()->with('error', 'Solde insuffisant pour le transfert multiple.');
+        }
+
+        // Effectuer les transferts
+        $transfertsReussis = 0;
+        $transfertsEchoues = [];
+
+        foreach ($destinataires as $destinataire) {
+            $compteDest = $compteModel->where('numero_telephone', $destinataire)->first();
+            
+            if (!$compteDest) {
+                $transfertsEchoues[] = "$destinataire (numéro inexistant)";
+                continue;
+            }
+
+            // Vérifier si autre opérateur
+            $prefixeDest = substr($destinataire, 0, 3);
+            $autreOperateur = $prefixeAutreOperateurModel->isAutreOperateur($prefixeDest);
+            
+            $estAutreOperateur = 0;
+            $idAutreOperateur = null;
+            $commissionSupplementaire = 0.0;
+            $frais = $fraisParDestinataire;
+
+            if ($autreOperateur) {
+                $estAutreOperateur = 1;
+                $idAutreOperateur = $autreOperateur['id_autre_operateur'];
+                $commissionSupplementaire = ($montantParDestinataire * $autreOperateur['commission_pourcentage']) / 100;
+                $frais += $commissionSupplementaire;
+            }
+
+            // Débiter et créditer
+            $compteModel->update($compteExp['id'], ['solde' => $compteExp['solde'] - ($montantParDestinataire + $frais)]);
+            $compteModel->update($compteDest['id'], ['solde' => $compteDest['solde'] + $montantParDestinataire]);
+
+            // Enregistrer l'opération
+            $operationData = [
+                'id_type_operation'  => 3,
+                'numero_expediteur'   => $expediteur,
+                'numero_destinataire' => $destinataire,
+                'montant'             => $montantParDestinataire,
+                'frais'               => $frais
+            ];
+
+            if ($estAutreOperateur) {
+                $operationData['est_autre_operateur'] = $estAutreOperateur;
+                $operationData['id_autre_operateur'] = $idAutreOperateur;
+                $operationData['commission_supplementaire'] = $commissionSupplementaire;
+            }
+
+            $operationModel->insert($operationData);
+            $transfertsReussis++;
+        }
+
+        // Message de résultat
+        $message = "Transfert multiple terminé. $transfertsReussis transfert(s) réussi(s).";
+        if (!empty($transfertsEchoues)) {
+            $message .= " Échecs: " . implode(', ', $transfertsEchoues);
+        }
+
+        return redirect()->to('/client/space')->with('success', $message);
     }
 
     public function logout() {

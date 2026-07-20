@@ -38,10 +38,30 @@ CREATE TABLE operations (
     numero_destinataire TEXT,
     montant REAL NOT NULL,
     frais REAL NOT NULL DEFAULT 0.0,
+    est_autre_operateur INTEGER DEFAULT 0,
+    id_autre_operateur INTEGER,
+    commission_supplementaire REAL DEFAULT 0.0,
     date_operation TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (id_type_operation) REFERENCES types_operation(id),
     FOREIGN KEY (numero_expediteur) REFERENCES comptes(numero_telephone),
-    FOREIGN KEY (numero_destinataire) REFERENCES comptes(numero_telephone)
+    FOREIGN KEY (numero_destinataire) REFERENCES comptes(numero_telephone),
+    FOREIGN KEY (id_autre_operateur) REFERENCES autres_operateurs(id)
+);
+
+DROP TABLE IF EXISTS autres_operateurs;
+CREATE TABLE autres_operateurs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nom TEXT NOT NULL,
+    commission_pourcentage REAL NOT NULL DEFAULT 0.0
+);
+
+DROP TABLE IF EXISTS prefixes_autres_operateurs;
+CREATE TABLE prefixes_autres_operateurs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id_autre_operateur INTEGER NOT NULL,
+    prefixe TEXT NOT NULL,
+    FOREIGN KEY (id_autre_operateur) REFERENCES autres_operateurs(id),
+    UNIQUE(id_autre_operateur, prefixe)
 );
 
 PRAGMA foreign_keys = ON;
@@ -75,3 +95,12 @@ INSERT INTO baremes_frais (id_type_operation, montant_min, montant_max, frais) V
 (3, 250001, 500000, 1500),
 (3, 500001, 1000000, 2500),
 (3, 1000001, 2000000, 3000);
+
+-- Exemple d'autres opérateurs (Telma, Orange)
+INSERT INTO autres_operateurs (nom, commission_pourcentage) VALUES ('Telma', 5.0), ('Orange', 3.0), ('Airtel', 2.0);
+
+-- Exemple de préfixes pour autres opérateurs
+INSERT INTO prefixes_autres_operateurs (id_autre_operateur, prefixe) VALUES 
+(1, '034'), (1, '038'),  -- Telma
+(2, '032'), (2, '037'),  -- Orange
+(3, '033');  -- Airtel
