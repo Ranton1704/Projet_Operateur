@@ -6,7 +6,31 @@ use App\Models\OperationModel;
 
 class OperateurController extends BaseController {
     
+    public function login() {
+        if (session()->get('is_operator')) {
+            return redirect()->to('/operateur');
+        }
+        return view('operateur/login');
+    }
+
+    public function authentifier() {
+        $username = $this->request->getPost('username');
+        $password = $this->request->getPost('password');
+
+        // Vérification simple lors de la soumission
+        if ($username === 'admin' && $password === 'admin123') {
+            session()->set('is_operator', true);
+            return redirect()->to('/operateur');
+        }
+
+        return redirect()->back()->with('error', 'Identifiants opérateur incorrects.');
+    }
+
     public function dashboard() {
+        if (!session()->get('is_operator')) {
+            return redirect()->to('/operateur/login')->with('error', 'Veuillez vous connecter.');
+        }
+
         $prefixeModel = new PrefixeModel();
         $compteModel = new CompteModel();
         $operationModel = new OperationModel();
@@ -19,6 +43,8 @@ class OperateurController extends BaseController {
     }
 
     public function ajouterPrefixe() {
+        if (!session()->get('is_operator')) return redirect()->to('/operateur/login');
+
         $prefixeModel = new PrefixeModel();
         $prefixe = $this->request->getPost('prefixe');
 
@@ -26,5 +52,10 @@ class OperateurController extends BaseController {
             $prefixeModel->insert(['prefixe' => $prefixe]);
         }
         return redirect()->to('/operateur');
+    }
+
+    public function logout() {
+        session()->remove('is_operator');
+        return redirect()->to('/operateur/login');
     }
 }

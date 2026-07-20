@@ -10,7 +10,7 @@
 <nav class="navbar navbar-dark bg-dark shadow-sm mb-4">
     <div class="container">
         <span class="navbar-brand mb-0 h1 fw-bold">⚙️ Mobile Money - Administration Opérateur</span>
-        <a href="<?= base_url('client/login') ?>" class="btn btn-sm btn-outline-light">Espace Client →</a>
+        <a href="<?= base_url('operateur/logout') ?>" class="btn btn-sm btn-outline-light">Déconnexion</a>
     </div>
 </nav>
 

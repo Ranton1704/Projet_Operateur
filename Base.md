@@ -1,0 +1,1 @@
+sqlite3 writable/db/Operateur.db < base.sql
