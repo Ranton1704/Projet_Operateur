@@ -353,40 +353,170 @@ body {
 /* Enhanced balance card variant */
 .enhanced-balance {
     grid-column: span 4;
-    background: linear-gradient(135deg, #ffffff 0%, #f7fff7 100%);
+    background:
+        radial-gradient(circle at top right, rgba(76, 175, 80, 0.16) 0, rgba(76, 175, 80, 0.16) 18%, transparent 19%),
+        linear-gradient(180deg, #ffffff 0%, #f7fff7 100%);
     color: #2c3e50;
-    border-radius: 16px;
-    padding: 18px 20px;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
-    min-height: 140px;
+    border-radius: 22px;
+    padding: 22px 24px;
+    box-shadow:
+        0 18px 40px rgba(17, 24, 39, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    min-height: 180px;
+    border: 1px solid rgba(76, 175, 80, 0.10);
+    position: relative;
+    overflow: hidden;
+}
+
+.enhanced-balance::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.14), rgba(255, 255, 255, 0));
+    pointer-events: none;
+}
+
+.enhanced-balance::after {
+    content: '';
+    position: absolute;
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    top: -50px;
+    right: -40px;
+    background: radial-gradient(circle, rgba(76, 175, 80, 0.20) 0%, rgba(76, 175, 80, 0.08) 45%, transparent 70%);
+    filter: blur(2px);
+    pointer-events: none;
 }
 
 .enhanced-balance .balance-top {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 8px;
+    gap: 14px;
+    margin-bottom: 18px;
+    position: relative;
+    z-index: 1;
+}
+
+.enhanced-balance .balance-label {
+    margin-bottom: 0;
+    text-transform: none;
+    opacity: 1;
+    align-items: flex-start;
 }
 
 .enhanced-balance .balance-icon {
-    font-size: 20px;
+    font-size: 18px;
     color: #2e7d32;
+    background: rgba(76, 175, 80, 0.12);
+    border-radius: 12px;
+    padding: 8px;
+}
+
+.enhanced-balance .balance-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #5f6f63;
+}
+
+.enhanced-balance .balance-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
 }
 
 .enhanced-balance .balance-main {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 8px;
+    position: relative;
+    z-index: 1;
 }
 
 .enhanced-balance .balance-amount {
-    font-size: 28px;
-    font-weight: 800;
-    color: #153d18;
+    font-size: 34px;
+    line-height: 1.05;
+    font-weight: 900;
+    color: #123a17;
+    letter-spacing: -0.03em;
 }
 
-.btn-small { padding: 6px 10px; border-radius: 8px; font-size: 13px; }
-.btn-refresh { background: transparent; border: none; color: #2c3e50; font-size: 16px; }
+.enhanced-balance .balance-currency {
+    font-size: 18px;
+    font-weight: 700;
+    color: #2f5f33;
+}
+
+.enhanced-balance .balance-sub {
+    display: inline-flex;
+    align-self: flex-start;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(76, 175, 80, 0.10);
+    color: #2e7d32;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.enhanced-balance .balance-footer {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(76, 175, 80, 0.14);
+    position: relative;
+    z-index: 1;
+}
+
+.enhanced-balance .balance-note {
+    color: #6b7b6f;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.btn-small {
+    padding: 8px 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    border: 1px solid rgba(76, 175, 80, 0.18);
+    background: rgba(255, 255, 255, 0.92);
+    color: #2e7d32;
+    box-shadow: 0 8px 18px rgba(76, 175, 80, 0.08);
+}
+
+.btn-small:hover {
+    transform: translateY(-1px);
+    border-color: rgba(76, 175, 80, 0.30);
+}
+
+.btn-refresh {
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(76, 175, 80, 0.08);
+    border: 1px solid rgba(76, 175, 80, 0.14);
+    color: #2e7d32;
+    font-size: 16px;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.btn-refresh:hover {
+    background: rgba(76, 175, 80, 0.14);
+    transform: translateY(-1px) rotate(10deg);
+}
+
+.btn-outline {
+    text-decoration: none;
+}
 
 
 .balance-card::before {
@@ -757,5 +887,18 @@ body {
     .history-table th,
     .history-table td {
         padding: 12px 10px;
+    }
+
+    .enhanced-balance {
+        padding: 20px;
+    }
+
+    .enhanced-balance .balance-top {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .enhanced-balance .balance-amount {
+        font-size: 30px;
     }
 }
