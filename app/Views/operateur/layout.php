@@ -128,9 +128,6 @@
                     Frais
                 </a>
             </li>
-            <li style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.2);">
-                <span style="color: rgba(255,255,255,0.7); font-size: 11px; padding: 0 20px; text-transform: uppercase; letter-spacing: 1px;">Version 2</span>
-            </li>
             <li>
                 <a href="<?= base_url('operateur/autres-operateurs') ?>" class="<?= uri_string() === 'operateur/autres-operateurs' ? 'active' : '' ?>">
                     <i class="bi bi-building"></i>
