@@ -1,16 +1,15 @@
-Tu peux rendre les tâches plus précises et mieux réparties comme ceci :
-
+Nom Binôme : Ranto (4242) et Ajaina (4371)
 # Version 1 – Système Mobile Money
 
 ## 1. Initialisation du projet
 
-### Mise en place de l'environnement
+### Mise en place de l'environnement (Ranto)
 
 * Création du projet CodeIgniter 4
 * Configuration de l'environnement de développement
 * Vérification du bon fonctionnement de l'application
 
-### Configuration de la base de données
+### Configuration de la base de données (Ajaina)
 
 * Configuration du fichier `/app/Config/Database.php` pour SQLite
 * Création du fichier `base.sql` à la racine du projet
@@ -28,36 +27,31 @@ Tu peux rendre les tâches plus précises et mieux réparties comme ceci :
 
 ## 2. Authentification
 
-### Connexion des clients
+### Connexion des clients (Ranto)
 
 * Authentification via numéro de téléphone
 * Vérification de l'existence du numéro
 * Création automatique du compte si le numéro possède un préfixe valide
 * Gestion de la session utilisateur
 
-### Développement technique
+### Développement technique (Ranto)
 
 * Configuration des routes
 * Création du contrôleur d'authentification
 * Création des vues de connexion
 * Gestion de la déconnexion
 
-**Remarque :**
 
-* Aucune inscription manuelle n'est nécessaire.
+## 3. Module Opérateur 
 
----
-
-## 3. Module Opérateur
-
-### Gestion des préfixes
+### Gestion des préfixes (Ajaina)
 
 * Ajouter un préfixe
 * Modifier un préfixe
 * Supprimer un préfixe
 * Lister les préfixes autorisés
 
-### Gestion des types d'opérations
+### Gestion des types d'opérations (Ajaina)
 
 * Création des types :
 
@@ -66,20 +60,20 @@ Tu peux rendre les tâches plus précises et mieux réparties comme ceci :
   * Transfert
 * Activation / désactivation d'un type d'opération
 
-### Gestion des barèmes de frais
+### Gestion des barèmes de frais (Ajaina)
 
 * Création des tranches de montants
 * Définition des frais associés
 * Modification des barèmes
 * Consultation des barèmes en vigueur
 
-### Suivi financier
+### Suivi financier (Ranto)
 
 * Calcul des revenus générés par les frais
 * Consultation des gains par type d'opération
 * Consultation du gain total de l'opérateur
 
-### Situation des comptes clients
+### Situation des comptes clients (Ranto)
 
 * Nombre total de comptes
 * Solde global détenu par les clients
@@ -90,36 +84,36 @@ Tu peux rendre les tâches plus précises et mieux réparties comme ceci :
 
 ## 4. Module Client
 
-### Connexion simplifiée
+### Connexion simplifiée (Ranto)
 
 * Connexion à l'aide du numéro de téléphone
 * Vérification du préfixe autorisé
 
-### Gestion du compte
+### Gestion du compte (Ajaina)
 
-#### Consultation du solde
+#### Consultation du solde (Ajaina)
 
 * Affichage du solde actuel
 
-#### Dépôt
+#### Dépôt (Ajaina)
 
 * Enregistrement d'un dépôt
 * Mise à jour automatique du solde
 
-#### Retrait
+#### Retrait (Ajaina)
 
 * Vérification du solde disponible
 * Calcul automatique des frais
 * Mise à jour du solde
 
-#### Transfert
+#### Transfert (Ajaina)
 
 * Sélection du bénéficiaire
 * Vérification du solde disponible
 * Calcul automatique des frais
 * Mise à jour des deux comptes
 
-#### Historique des opérations
+#### Historique des opérations (Ajaina)
 
 * Liste chronologique des transactions
 * Affichage du type d'opération
