@@ -51,10 +51,7 @@
                     <i class="bi bi-wallet2 balance-icon"></i>
                     <div class="balance-title">Votre Solde Actuel</div>
                 </div>
-                <div class="balance-actions">
-                    <a href="#" class="btn-refresh" title="Actualiser le solde"><i class="bi bi-arrow-clockwise"></i></a>
-                    <a href="#" class="btn-small btn-outline" title="Recharger"><i class="bi bi-plus-lg"></i> Recharger</a>
-                </div>
+             
             </div>
             <div class="balance-main">
                 <div class="balance-amount">
@@ -177,11 +174,10 @@
                 <div class="tab-content" id="transfert-multiple">
                     <form id="form-transfert-multiple" action="<?= base_url('client/transfert-multiple') ?>" method="POST">
                         <div class="form-group">
-                            <label class="form-label">Destinataires et montants</label>
+                            <label class="form-label">Destinataires</label>
                             <div id="multi-rows" style="display: grid; gap:10px;">
                                 <div class="multi-row" style="display:flex; gap:8px; align-items:center;">
                                     <input type="tel" name="destinataires[]" class="form-control" placeholder="Numéro (Ex: 037XXXXXXX)" required style="flex:3;">
-                                    <input type="number" name="montants[]" class="form-control montant-item" placeholder="Montant (Ar)" required min="100" style="flex:2;">
                                     <button type="button" class="btn btn-danger remove-row" style="flex:0 0 auto; padding:6px 10px;">×</button>
                                 </div>
                             </div>
@@ -189,7 +185,12 @@
                                 <button type="button" id="add-row" class="btn btn-outline-primary" style="padding:8px 12px;"><i class="bi bi-plus-lg"></i> Ajouter</button>
                                 <button type="button" id="clear-rows" class="btn btn-outline-secondary" style="padding:8px 12px;">Effacer</button>
                             </div>
-                            <small style="color: #7f8c8d; font-size: 12px;">Un champ par destinataire — spécifiez le montant pour chaque numéro.</small>
+                            <small style="color: #7f8c8d; font-size: 12px;">Un champ par destinataire. Le montant saisi plus bas sera divisé automatiquement entre tous les numéros.</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Montant total à transférer (Ar)</label>
+                            <input type="number" name="montant_total" class="form-control" placeholder="Montant total" required min="100" id="montant-total-multiple">
                         </div>
 
                         <div id="preview-multiple" style="display: none; background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">
@@ -198,7 +199,7 @@
                             </div>
                             <div style="font-size: 14px; color: #7f8c8d;">
                                 <div>Nombre de destinataires: <strong id="nb-destinataires">0</strong></div>
-                                <div>Montant total: <strong id="montant-total-preview">0 Ar</strong></div>
+                                <div>Montant par destinataire: <strong id="montant-par-destinataire">0 Ar</strong></div>
                                 <div>Frais total estimé: <strong id="frais-total-preview">0 Ar</strong></div>
                                 <div>Total à débiter: <strong id="total-debiter-preview">0 Ar</strong></div>
                             </div>
@@ -215,7 +216,7 @@
                                 <i class="bi bi-send-plus"></i>
                                 Envoyer
                             </button>
-                            <small style="color:#7f8c8d;">Les transferts sont effectués un par un. Assurez-vous du solde disponible.</small>
+                            <small style="color:#7f8c8d;">Le montant total sera réparti équitablement entre les destinataires.</small>
                         </div>
 
                         <div style="margin-top:10px;">
@@ -402,14 +403,26 @@
     const multiRows = document.getElementById('multi-rows');
     const addRowBtn = document.getElementById('add-row');
     const clearRowsBtn = document.getElementById('clear-rows');
+    const montantTotalMultiple = document.getElementById('montant-total-multiple');
     const previewMultiple = document.getElementById('preview-multiple');
     const nbDestinataires = document.getElementById('nb-destinataires');
-    const montantTotalPreview = document.getElementById('montant-total-preview');
+    const montantParDestinataire = document.getElementById('montant-par-destinataire');
     const fraisTotalPreview = document.getElementById('frais-total-preview');
     const totalDebiterPreview = document.getElementById('total-debiter-preview');
     const transfertMultipleFee = document.getElementById('transfert-multiple-fee');
 
-    const myPrefix = '<?= substr($compte['numero_telephone'], 0, 3) ?>';
+    function normalizePhoneNumber(value) {
+        let v = String(value || '').replace(/\s+/g, '');
+        if (v.startsWith('+261')) v = v.substring(4);
+        if (v.startsWith('261')) v = v.substring(3);
+        if (v.length > 0 && !v.startsWith('0')) v = '0' + v;
+        return v;
+    }
+
+    function extractPrefix(value) {
+        const normalized = normalizePhoneNumber(value);
+        return normalized.length >= 3 ? normalized.substring(0, 3) : '';
+    }
 
     function createRow(number = '', amount = '') {
         const row = document.createElement('div');
@@ -427,14 +440,21 @@
         inputNum.style.flex = '3';
         inputNum.value = number;
 
-        // validation: même opérateur
+        // validation: même opérateur entre les destinataires
         function validatePrefix() {
             const val = inputNum.value.trim();
             if (!val) { inputNum.classList.remove('is-invalid'); return true; }
-            const pref = val.substring(0,3);
-            if (pref !== myPrefix) {
+            const rows = Array.from(multiRows.querySelectorAll('.multi-row'));
+            const refRow = rows.find(r => {
+                const otherValue = r.querySelector('input[name="destinataires[]"]').value.trim();
+                return otherValue !== '';
+            });
+            const referencePrefix = refRow ? extractPrefix(refRow.querySelector('input[name="destinataires[]"]').value) : extractPrefix(val);
+            const pref = extractPrefix(val);
+
+            if (referencePrefix && pref && pref !== referencePrefix) {
                 inputNum.classList.add('is-invalid');
-                inputNum.title = 'Numéro d\'un autre opérateur détecté';
+                inputNum.title = 'Tous les numéros doivent appartenir au même opérateur';
                 return false;
             } else {
                 inputNum.classList.remove('is-invalid');
@@ -444,16 +464,6 @@
         }
 
         inputNum.addEventListener('blur', function(){ validatePrefix(); updateMultiPreview(); });
-
-        const inputMont = document.createElement('input');
-        inputMont.type = 'number';
-        inputMont.name = 'montants[]';
-        inputMont.placeholder = 'Montant (Ar)';
-        inputMont.required = true;
-        inputMont.min = 100;
-        inputMont.className = 'form-control montant-item';
-        inputMont.style.flex = '2';
-        inputMont.value = amount;
 
         const btnRemove = document.createElement('button');
         btnRemove.type = 'button';
@@ -467,11 +477,9 @@
             updateMultiPreview();
         });
 
-        inputMont.addEventListener('input', updateMultiPreview);
         inputNum.addEventListener('input', function(){ validatePrefix(); updateMultiPreview(); });
 
         row.appendChild(inputNum);
-        row.appendChild(inputMont);
         row.appendChild(btnRemove);
 
         return row;
@@ -492,30 +500,47 @@
     function updateMultiPreview() {
         const rows = Array.from(multiRows.querySelectorAll('.multi-row'));
         const pairs = [];
+        const montantTotal = parseFloat(montantTotalMultiple?.value) || 0;
         let totalMontant = 0;
         let totalFrais = 0;
+        let referencePrefix = null;
+        let sameOperator = true;
 
         rows.forEach(r => {
-            const num = r.querySelector('input[name="destinataires[]"]').value.trim();
-            const mont = parseFloat(r.querySelector('input[name="montants[]"]').value) || 0;
-            if (num && mont > 0) {
-                pairs.push({num, mont});
-                totalMontant += mont;
-                const frais = calculerFrais(mont, baremesTransfert);
-                totalFrais += frais;
+            const num = normalizePhoneNumber(r.querySelector('input[name="destinataires[]"]').value.trim());
+            if (num) {
+                pairs.push({num});
             }
         });
+
+        if (pairs.length > 0 && montantTotal > 0) {
+            const montantPar = montantTotal / pairs.length;
+            totalMontant = montantTotal;
+            pairs.forEach(() => {
+                const frais = calculerFrais(montantPar, baremesTransfert);
+                totalFrais += frais;
+            });
+
+            pairs.forEach(pair => {
+                const prefix = extractPrefix(pair.num);
+                if (!referencePrefix) {
+                    referencePrefix = prefix;
+                } else if (prefix && prefix !== referencePrefix) {
+                    sameOperator = false;
+                }
+            });
+        }
 
         if (pairs.length > 0) {
             previewMultiple.style.display = 'block';
             nbDestinataires.textContent = pairs.length;
-            montantTotalPreview.textContent = formatMontant(totalMontant);
+            montantParDestinataire.textContent = pairs.length > 0 && montantTotal > 0 ? formatMontant(montantTotal / pairs.length) : '0 Ar';
             fraisTotalPreview.textContent = formatMontant(totalFrais);
             totalDebiterPreview.textContent = formatMontant(totalMontant + totalFrais);
 
             transfertMultipleFee.style.display = 'flex';
             transfertMultipleFee.querySelector('.fee-amount').textContent = formatMontant(totalFrais);
-            transfertMultipleFee.querySelector('.fee-info').textContent = '';
+            transfertMultipleFee.querySelector('.fee-info').textContent = sameOperator ? '' : 'Les numéros doivent être du même opérateur';
         } else {
             previewMultiple.style.display = 'none';
             transfertMultipleFee.style.display = 'none';
@@ -527,6 +552,7 @@
         // attach handlers to existing controls
         if (addRowBtn) addRowBtn.addEventListener('click', () => addRow());
         if (clearRowsBtn) clearRowsBtn.addEventListener('click', clearRows);
+        if (montantTotalMultiple) montantTotalMultiple.addEventListener('input', updateMultiPreview);
 
         // ensure at least one row
         if (multiRows.querySelectorAll('.multi-row').length === 0) addRow();
@@ -534,7 +560,7 @@
 
     // Formatter les champs téléphoniques de la page
     function formatPhoneRaw(value) {
-        let v = String(value || '').replace(/\s/g, '');
+        let v = String(value || '').replace(/\s+/g, '');
         // remove +261 or leading country code
         if (v.startsWith('261')) v = v.substring(3);
         if (v.startsWith('+261')) v = v.substring(4);
@@ -575,29 +601,38 @@
     // override addRow usage in this file
     addRow = function(n,a){ return window.addRowWithFormat(n,a); };
 
-    // Validation à la soumission: empêcher numéros d'autres opérateurs
+    // Validation à la soumission: exiger un même opérateur entre les destinataires
     const formMulti = document.getElementById('form-transfert-multiple');
     if (formMulti) {
         formMulti.addEventListener('submit', function(e) {
-            const invalids = multiRows.querySelectorAll('input[name="destinataires[]"].is-invalid');
-            if (invalids.length > 0) {
-                e.preventDefault();
-                alert('Erreur: un ou plusieurs numéros appartiennent à un autre opérateur.');
-                invalids[0].focus();
-                return false;
-            }
-
-            // vérifier au moins une ligne valide
+            // vérifier au moins une ligne valide et un opérateur commun
             const rows = Array.from(multiRows.querySelectorAll('.multi-row'));
             let anyValid = false;
+            let referencePrefix = null;
             for (const r of rows) {
-                const num = r.querySelector('input[name="destinataires[]"]').value.trim();
-                const mont = parseFloat(r.querySelector('input[name="montants[]"]').value) || 0;
-                if (num && mont > 0) { anyValid = true; break; }
+                const num = normalizePhoneNumber(r.querySelector('input[name="destinataires[]"]').value.trim());
+                if (num) {
+                    anyValid = true;
+                    const pref = extractPrefix(num);
+                    if (!referencePrefix) {
+                        referencePrefix = pref;
+                    } else if (pref && pref !== referencePrefix) {
+                        e.preventDefault();
+                        alert('Tous les numéros du transfert multiple doivent appartenir au même opérateur.');
+                        return false;
+                    }
+                }
             }
             if (!anyValid) {
                 e.preventDefault();
                 alert('Veuillez renseigner au moins un destinataire valide avec montant.');
+                return false;
+            }
+
+            const montant = parseFloat(montantTotalMultiple?.value) || 0;
+            if (montant <= 0) {
+                e.preventDefault();
+                alert('Veuillez saisir un montant total valide.');
                 return false;
             }
         });

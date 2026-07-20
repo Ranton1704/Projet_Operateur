@@ -183,9 +183,23 @@ class ClientController extends BaseController {
         $expediteur = $session->get('client_phone');
         if (!$expediteur) return redirect()->to('/client/login');
 
-        // Accept both legacy textarea or new arrays
+        $normalizePhone = function (string $number): string {
+            $value = preg_replace('/\s+/', '', trim($number));
+            if (substr($value, 0, 4) === '+261') {
+                $value = substr($value, 4);
+            }
+            if (substr($value, 0, 3) === '261') {
+                $value = substr($value, 3);
+            }
+            if ($value !== '' && $value[0] !== '0') {
+                $value = '0' . $value;
+            }
+
+            return $value;
+        };
+
+        // Accept both legacy textarea or the current recipients array
         $postDest = $this->request->getPost('destinataires');
-        $postMontants = $this->request->getPost('montants');
         $montantTotal = floatval($this->request->getPost('montant_total'));
 
         $compteModel = new CompteModel();
@@ -197,18 +211,13 @@ class ClientController extends BaseController {
 
         // Construire la liste de destinataires et montants
         $pairs = [];
-        if (is_array($postDest) && is_array($postMontants)) {
-            // Nouvelle interface: arrays destinataires[] et montants[]
-            for ($i = 0; $i < count($postDest); $i++) {
-                $num = trim($postDest[$i]);
-                $mont = floatval($postMontants[$i]);
-                if ($num !== '' && $mont > 0) {
-                    // normaliser numéro
-                    $n = preg_replace('/\s+/', '', $num);
-                    if (substr($n, 0, 4) === '+261') $n = substr($n, 4);
-                    if (substr($n, 0, 3) === '261') $n = substr($n, 3);
-                    if ($n !== '' && $n[0] !== '0') $n = '0' . $n;
-                    $pairs[] = ['num' => $n, 'mont' => $mont];
+        if (is_array($postDest)) {
+            // Nouvelle interface: destinataires[] + montant total partagé
+            $dests = array_values(array_filter(array_map('trim', $postDest)));
+            if (!empty($dests) && $montantTotal > 0) {
+                $montantParDestinataire = $montantTotal / count($dests);
+                foreach ($dests as $dest) {
+                    $pairs[] = ['num' => $normalizePhone($dest), 'mont' => $montantParDestinataire];
                 }
             }
         } else {
@@ -218,11 +227,7 @@ class ClientController extends BaseController {
             if (!empty($dests)) {
                 $per = $montantTotal / count($dests);
                 foreach ($dests as $d) {
-                    $n = preg_replace('/\s+/', '', $d);
-                    if (substr($n, 0, 4) === '+261') $n = substr($n, 4);
-                    if (substr($n, 0, 3) === '261') $n = substr($n, 3);
-                    if ($n !== '' && $n[0] !== '0') $n = '0' . $n;
-                    $pairs[] = ['num' => $n, 'mont' => $per];
+                    $pairs[] = ['num' => $normalizePhone($d), 'mont' => $per];
                 }
             }
         }
@@ -231,13 +236,31 @@ class ClientController extends BaseController {
             return redirect()->back()->with('error', 'Veuillez entrer au moins un destinataire valide.');
         }
 
+        $commonPrefix = null;
+        foreach ($pairs as $pair) {
+            $prefix = substr($pair['num'], 0, 3);
+            if ($commonPrefix === null) {
+                $commonPrefix = $prefix;
+                continue;
+            }
+
+            if ($prefix !== $commonPrefix) {
+                return redirect()->back()->with('error', 'Tous les numéros du transfert multiple doivent appartenir au même opérateur.');
+            }
+        }
+
+        $operatorInfo = $prefixeAutreOperateurModel->isAutreOperateur($commonPrefix);
+        $commissionPourcentage = $operatorInfo ? floatval($operatorInfo['commission_pourcentage']) : 0.0;
+
         // Calculer les frais par destinataire séparément
         $fraisParDestinataire = [];
         $totalMontant = 0;
         foreach ($pairs as $p) {
             $totalMontant += $p['mont'];
             $f = $baremeModel->getFrais(3, $p['mont']);
-            $fraisParDestinataire[] = $f ? floatval($f['frais']) : 0.0;
+            $fraisBase = $f ? floatval($f['frais']) : 0.0;
+            $commission = $commissionPourcentage > 0 ? (($p['mont'] * $commissionPourcentage) / 100) : 0.0;
+            $fraisParDestinataire[] = $fraisBase + $commission;
         }
         $totalFrais = array_sum($fraisParDestinataire);
         $totalADebiter = $totalMontant + $totalFrais;
@@ -250,19 +273,11 @@ class ClientController extends BaseController {
         // Effectuer les transferts en parcourant les paires (num, mont)
         $transfertsReussis = 0;
         $transfertsEchoues = [];
-        $myPrefix = substr($compteExp['numero_telephone'], 0, 3);
         $currentSolde = $compteExp['solde'];
 
         foreach ($pairs as $index => $p) {
             $destinataire = $p['num'];
             $montantPar = $p['mont'];
-
-            // Vérifier opérateur identique (pour transfert multiple)
-            $prefixeDest = substr($destinataire, 0, 3);
-            if ($prefixeDest !== $myPrefix) {
-                $transfertsEchoues[] = "$destinataire (différent opérateur)";
-                continue;
-            }
 
             $compteDest = $compteModel->where('numero_telephone', $destinataire)->first();
             if (!$compteDest) {
