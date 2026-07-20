@@ -191,7 +191,7 @@
                 </form>
 
                 <div style="max-height: 500px; overflow-y: auto;">
-                    <table class="history-table">
+                    <table class="history-table" id="history-table">
                         <thead>
                             <tr>
                                 <th>Date & Heure</th>
@@ -207,7 +207,7 @@
                                 <tr><td colspan="6" class="empty-state">Aucune transaction enregistrée.</td></tr>
                             <?php else: ?>
                                 <?php foreach($historique as $op): ?>
-                                    <tr>
+                                    <tr data-date="<?= $op['date_operation'] ?>" data-type="<?= $op['id_type_operation'] ?>">
                                         <td><?= esc($op['date_operation']) ?></td>
                                         <td>
                                             <?php 
@@ -319,6 +319,56 @@
             }
         });
     }
+
+    // Filtrage en temps réel de l'historique
+    const dateDebut = document.querySelector('input[name="date_debut"]');
+    const dateFin = document.querySelector('input[name="date_fin"]');
+    const typeOperation = document.querySelector('select[name="type_operation"]');
+    const historyTable = document.getElementById('history-table');
+    
+    function filterHistory() {
+        if (!historyTable) return;
+        
+        const rows = historyTable.querySelectorAll('tbody tr');
+        const debut = dateDebut ? dateDebut.value : '';
+        const fin = dateFin ? dateFin.value : '';
+        const type = typeOperation ? typeOperation.value : '';
+        
+        rows.forEach(row => {
+            if (row.classList.contains('empty-state')) return;
+            
+            const rowDate = row.getAttribute('data-date');
+            const rowType = row.getAttribute('data-type');
+            
+            let visible = true;
+            
+            // Filtre par date de début
+            if (debut && rowDate) {
+                const rowDateObj = new Date(rowDate);
+                const debutObj = new Date(debut);
+                if (rowDateObj < debutObj) visible = false;
+            }
+            
+            // Filtre par date de fin
+            if (fin && rowDate && visible) {
+                const rowDateObj = new Date(rowDate);
+                const finObj = new Date(fin);
+                finObj.setHours(23, 59, 59, 999);
+                if (rowDateObj > finObj) visible = false;
+            }
+            
+            // Filtre par type d'opération
+            if (type && rowType && visible) {
+                if (rowType !== type) visible = false;
+            }
+            
+            row.style.display = visible ? '' : 'none';
+        });
+    }
+    
+    if (dateDebut) dateDebut.addEventListener('change', filterHistory);
+    if (dateFin) dateFin.addEventListener('change', filterHistory);
+    if (typeOperation) typeOperation.addEventListener('change', filterHistory);
 </script>
 <script src="/assets/js/space.js"></script>
 </body>
