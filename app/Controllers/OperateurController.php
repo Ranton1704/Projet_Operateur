@@ -35,12 +35,58 @@ class OperateurController extends BaseController {
     $prefixeModel = new PrefixeModel();
     $compteModel = new CompteModel();
     $operationModel = new OperationModel();
-    $baremeModel = new \App\Models\BaremeFraisModel();
 
     $data['prefixes'] = $prefixeModel->findAll();
     $data['comptes']  = $compteModel->findAll();
     $data['gains']    = $operationModel->getGainsParType();
-    
+
+    return view('operateur/dashboard', $data);
+}
+
+public function prefixes()
+{
+    if (!session()->get('is_operator')) {
+        return redirect()->to('/operateur/login')->with('error', 'Veuillez vous connecter.');
+    }
+
+    $prefixeModel = new PrefixeModel();
+    $data['prefixes'] = $prefixeModel->findAll();
+
+    return view('operateur/prefixes', $data);
+}
+
+public function gains()
+{
+    if (!session()->get('is_operator')) {
+        return redirect()->to('/operateur/login')->with('error', 'Veuillez vous connecter.');
+    }
+
+    $operationModel = new OperationModel();
+    $data['gains'] = $operationModel->getGainsParType();
+
+    return view('operateur/gains', $data);
+}
+
+public function comptes()
+{
+    if (!session()->get('is_operator')) {
+        return redirect()->to('/operateur/login')->with('error', 'Veuillez vous connecter.');
+    }
+
+    $compteModel = new CompteModel();
+    $data['comptes'] = $compteModel->findAll();
+
+    return view('operateur/comptes', $data);
+}
+
+public function frais()
+{
+    if (!session()->get('is_operator')) {
+        return redirect()->to('/operateur/login')->with('error', 'Veuillez vous connecter.');
+    }
+
+    $baremeModel = new \App\Models\BaremeFraisModel();
+
     // Barème des Retraits (ID = 2)
     $data['baremes_retrait'] = $baremeModel->select('baremes_frais.*, types_operation.nom as type_nom')
                                            ->join('types_operation', 'types_operation.id = baremes_frais.id_type_operation')
@@ -55,7 +101,7 @@ class OperateurController extends BaseController {
                                              ->orderBy('montant_min', 'ASC')
                                              ->findAll();
 
-    return view('operateur/dashboard', $data);
+    return view('operateur/frais', $data);
 }
 
 // CRUD : Ajouter ou Modifier une tranche
