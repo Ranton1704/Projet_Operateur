@@ -1,0 +1,221 @@
+/* Reset and base styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #f5f7fa 0%, #e8f5e9 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.login-container {
+    width: 100%;
+    max-width: 420px;
+    padding: 20px;
+}
+
+.login-card {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    padding: 40px 30px;
+    text-align: center;
+}
+
+/* Logo */
+.logo-container {
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, #66BB6A 0%, #4CAF50 100%);
+    border-radius: 20px;
+    margin: 0 auto 25px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+}
+
+.logo-icon {
+    width: 45px;
+    height: 45px;
+    fill: white;
+}
+
+/* Typography */
+.login-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: #2c3e50;
+    margin-bottom: 10px;
+}
+
+.login-subtitle {
+    font-size: 15px;
+    color: #7f8c8d;
+    margin-bottom: 35px;
+    line-height: 1.5;
+}
+
+/* Form styles */
+.form-group {
+    margin-bottom: 25px;
+    text-align: left;
+}
+
+.form-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #34495e;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.phone-input-group {
+    display: flex;
+    align-items: center;
+    border: 2px solid #e8f5e9;
+    border-radius: 12px;
+    padding: 5px;
+    background: #fafafa;
+    transition: all 0.3s ease;
+}
+
+.phone-input-group:focus-within {
+    border-color: #66BB6A;
+    background: white;
+    box-shadow: 0 0 0 4px rgba(102, 187, 106, 0.1);
+}
+
+.country-code {
+    background: #66BB6A;
+    color: white;
+    padding: 12px 15px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 16px;
+    margin-right: 5px;
+}
+
+.phone-input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 12px 10px;
+    font-size: 16px;
+    outline: none;
+    color: #2c3e50;
+}
+
+.phone-input::placeholder {
+    color: #bdc3c7;
+}
+
+.form-help {
+    font-size: 12px;
+    color: #95a5a6;
+    margin-top: 8px;
+}
+
+.test-number {
+    font-size: 13px;
+    color: #66BB6A;
+    font-weight: 600;
+    margin-top: 10px;
+}
+
+/* Button styles */
+.btn-submit {
+    width: 100%;
+    padding: 15px;
+    background: linear-gradient(135deg, #66BB6A 0%, #4CAF50 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+    margin-top: 10px;
+}
+
+.btn-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+}
+
+.btn-submit:active {
+    transform: translateY(0);
+}
+
+/* Error alert */
+.alert-error {
+    background: #fee;
+    border: 1px solid #fcc;
+    color: #c33;
+    padding: 12px 15px;
+    border-radius: 10px;
+    font-size: 14px;
+    margin-bottom: 25px;
+    text-align: left;
+}
+
+/* Operator link */
+.operator-link {
+    display: block;
+    text-align: center;
+    margin-top: 25px;
+    color: #7f8c8d;
+    text-decoration: none;
+    font-size: 14px;
+    transition: color 0.3s ease;
+}
+
+.operator-link:hover {
+    color: #66BB6A;
+}
+
+.operator-link strong {
+    color: #66BB6A;
+    font-weight: 600;
+}
+
+/* Validation messages */
+#validation-message {
+    font-size: 13px;
+    margin-top: 8px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.validation-success {
+    color: #4CAF50;
+    background: #e8f5e9;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border-left: 3px solid #4CAF50;
+}
+
+.validation-error {
+    color: #e74c3c;
+    background: #fee;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border-left: 3px solid #e74c3c;
+}
+
+.phone-input-group.error {
+    border-color: #e74c3c;
+    background: #fee;
+}
+
+.phone-input-group.success {
+    border-color: #4CAF50;
+    background: #e8f5e9;
+}
