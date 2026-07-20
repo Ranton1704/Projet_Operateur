@@ -1,4 +1,4 @@
-Nom Binôme : Ranto (4242) et Ajaina (4371)
+## Nom Binôme : Ranto (4242) et Ajaina (4371)
 # Version 1 – Système Mobile Money
 
 ## 1. Initialisation du projet
