@@ -8,13 +8,45 @@ use App\Models\PrefixeAutreOperateurModel;
 
 class ClientController extends BaseController {
     
+    private function normalizePhone(string $number): string {
+        $value = preg_replace('/\s+/', '', trim($number));
+        if (substr($value, 0, 4) === '+261') {
+            $value = substr($value, 4);
+        }
+        if (substr($value, 0, 3) === '261') {
+            $value = substr($value, 3);
+        }
+        if ($value !== '' && $value[0] !== '0') {
+            $value = '0' . $value;
+        }
+
+        return $value;
+    }
+
+    private function findCompteByPhone(\App\Models\CompteModel $compteModel, string $phone): ?array {
+        $normalizedPhone = $this->normalizePhone($phone);
+
+        $compte = $compteModel->where('numero_telephone', $normalizedPhone)->first();
+        if ($compte) {
+            return $compte;
+        }
+
+        foreach ($compteModel->findAll() as $row) {
+            if ($this->normalizePhone((string) $row['numero_telephone']) === $normalizedPhone) {
+                return $row;
+            }
+        }
+
+        return null;
+    }
+
     public function login() {
         return view('client/login');
     }
 
     public function autoLogin() {
         $session = session();
-        $phone = $this->request->getPost('numero_telephone');
+        $phone = $this->normalizePhone((string) $this->request->getPost('numero_telephone'));
         
         // Extraction du préfixe (ex: les 3 premiers chiffres)
         $subPrefix = substr($phone, 0, 3);
@@ -26,13 +58,14 @@ class ClientController extends BaseController {
 
         // Login automatique : création à la volée s'il n'existe pas
         $compteModel = new CompteModel();
-        $compte = $compteModel->where('numero_telephone', $phone)->first();
+        $compte = $this->findCompteByPhone($compteModel, $phone);
         
         if (!$compte) {
             $compteModel->insert(['numero_telephone' => $phone, 'solde' => 0.0]);
+            $compte = ['numero_telephone' => $phone, 'solde' => 0.0];
         }
 
-        $session->set('client_phone', $phone);
+        $session->set('client_phone', $compte['numero_telephone']);
         return redirect()->to('/client/space');
     }
 
@@ -45,7 +78,7 @@ class ClientController extends BaseController {
         $operationModel = new OperationModel();
         $baremeModel = new BaremeFraisModel();
 
-        $data['compte'] = $compteModel->where('numero_telephone', $phone)->first();
+        $data['compte'] = $this->findCompteByPhone($compteModel, $phone);
         
         // Récupération des filtres
         $dateDebut = $this->request->getGet('date_debut');
@@ -95,7 +128,9 @@ class ClientController extends BaseController {
         $operationModel = new OperationModel();
         $prefixeAutreOperateurModel = new PrefixeAutreOperateurModel();
 
-        $compteExp = $compteModel->where('numero_telephone', $expediteur)->first();
+        $compteExp = $this->findCompteByPhone($compteModel, $expediteur);
+        if (!$compteExp) return redirect()->back()->with('error', 'Compte expediteur introuvable.');
+        $expediteur = $compteExp['numero_telephone'];
 
         // Mapping ID opération : 1 = depot, 2 = retrait, 3 = transfert
         $typeIds = ['depot' => 1, 'retrait' => 2, 'transfert' => 3];
@@ -126,10 +161,7 @@ class ClientController extends BaseController {
         } 
         elseif ($type === 'transfert') {
             // Normalisation du numéro destinataire
-            $destinataire = preg_replace('/\s+/', '', $destinataire);
-            if (substr($destinataire, 0, 4) === '+261') $destinataire = substr($destinataire, 4);
-            if (substr($destinataire, 0, 3) === '261') $destinataire = substr($destinataire, 3);
-            if ($destinataire !== '' && $destinataire[0] !== '0') $destinataire = '0' . $destinataire;
+            $destinataire = $this->normalizePhone((string) $destinataire);
 
             // Vérifier si le destinataire appartient à un autre opérateur
             $prefixeDest = substr($destinataire, 0, 3);
@@ -147,10 +179,11 @@ class ClientController extends BaseController {
                 return redirect()->back()->with('error', 'Solde insuffisant pour le transfert.');
             }
             
-            $compteDest = $compteModel->where('numero_telephone', $destinataire)->first();
+            $compteDest = $this->findCompteByPhone($compteModel, $destinataire);
             if (!$compteDest) {
                 return redirect()->back()->with('error', 'Le numéro destinataire n\'existe pas.');
             }
+            $destinataire = $compteDest['numero_telephone'];
             
             // Débit source, Crédit cible
             $compteModel->update($compteExp['id'], ['solde' => $compteExp['solde'] - ($montant + $frais)]);
@@ -183,20 +216,7 @@ class ClientController extends BaseController {
         $expediteur = $session->get('client_phone');
         if (!$expediteur) return redirect()->to('/client/login');
 
-        $normalizePhone = function (string $number): string {
-            $value = preg_replace('/\s+/', '', trim($number));
-            if (substr($value, 0, 4) === '+261') {
-                $value = substr($value, 4);
-            }
-            if (substr($value, 0, 3) === '261') {
-                $value = substr($value, 3);
-            }
-            if ($value !== '' && $value[0] !== '0') {
-                $value = '0' . $value;
-            }
-
-            return $value;
-        };
+        
 
         // Accept both legacy textarea or the current recipients array
         $postDest = $this->request->getPost('destinataires');
@@ -207,7 +227,9 @@ class ClientController extends BaseController {
         $operationModel = new OperationModel();
         $prefixeAutreOperateurModel = new PrefixeAutreOperateurModel();
 
-        $compteExp = $compteModel->where('numero_telephone', $expediteur)->first();
+        $compteExp = $this->findCompteByPhone($compteModel, $expediteur);
+        if (!$compteExp) return redirect()->back()->with('error', 'Compte expediteur introuvable.');
+        $expediteur = $compteExp['numero_telephone'];
 
         // Construire la liste de destinataires et montants
         $pairs = [];
@@ -217,7 +239,7 @@ class ClientController extends BaseController {
             if (!empty($dests) && $montantTotal > 0) {
                 $montantParDestinataire = $montantTotal / count($dests);
                 foreach ($dests as $dest) {
-                    $pairs[] = ['num' => $normalizePhone($dest), 'mont' => $montantParDestinataire];
+                    $pairs[] = ['num' => $this->normalizePhone($dest), 'mont' => $montantParDestinataire];
                 }
             }
         } else {
@@ -227,7 +249,7 @@ class ClientController extends BaseController {
             if (!empty($dests)) {
                 $per = $montantTotal / count($dests);
                 foreach ($dests as $d) {
-                    $pairs[] = ['num' => $normalizePhone($d), 'mont' => $per];
+                    $pairs[] = ['num' => $this->normalizePhone($d), 'mont' => $per];
                 }
             }
         }
@@ -279,11 +301,12 @@ class ClientController extends BaseController {
             $destinataire = $p['num'];
             $montantPar = $p['mont'];
 
-            $compteDest = $compteModel->where('numero_telephone', $destinataire)->first();
+            $compteDest = $this->findCompteByPhone($compteModel, $destinataire);
             if (!$compteDest) {
                 $transfertsEchoues[] = "$destinataire (numéro inexistant)";
                 continue;
             }
+            $destinataire = $compteDest['numero_telephone'];
 
             // Calcul des frais pour ce montant
             $frais = isset($fraisParDestinataire[$index]) ? $fraisParDestinataire[$index] : 0.0;
