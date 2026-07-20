@@ -13,6 +13,8 @@ $routes->post('client/login', 'ClientController::autoLogin');
 $routes->get('client/space', 'ClientController::space');
 $routes->post('client/transaction', 'ClientController::transaction');
 $routes->get('client/logout', 'ClientController::logout');
-
+$routes->get('operateur/login', 'OperateurController::login');
+$routes->post('operateur/login', 'OperateurController::authentifier');
+$routes->get('operateur/logout', 'OperateurController::logout');
 $routes->get('operateur', 'OperateurController::dashboard');
 $routes->post('operateur/prefixe', 'OperateurController::ajouterPrefixe');
