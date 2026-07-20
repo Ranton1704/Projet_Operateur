@@ -350,6 +350,45 @@ body {
     justify-content: center;
 }
 
+/* Enhanced balance card variant */
+.enhanced-balance {
+    grid-column: span 4;
+    background: linear-gradient(135deg, #ffffff 0%, #f7fff7 100%);
+    color: #2c3e50;
+    border-radius: 16px;
+    padding: 18px 20px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+    min-height: 140px;
+}
+
+.enhanced-balance .balance-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.enhanced-balance .balance-icon {
+    font-size: 20px;
+    color: #2e7d32;
+}
+
+.enhanced-balance .balance-main {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.enhanced-balance .balance-amount {
+    font-size: 28px;
+    font-weight: 800;
+    color: #153d18;
+}
+
+.btn-small { padding: 6px 10px; border-radius: 8px; font-size: 13px; }
+.btn-refresh { background: transparent; border: none; color: #2c3e50; font-size: 16px; }
+
+
 .balance-card::before {
     content: '';
     position: absolute;

@@ -125,10 +125,16 @@ class ClientController extends BaseController {
             $compteModel->update($compteExp['id'], ['solde' => $compteExp['solde'] - $totalADebiter]);
         } 
         elseif ($type === 'transfert') {
+            // Normalisation du numéro destinataire
+            $destinataire = preg_replace('/\s+/', '', $destinataire);
+            if (substr($destinataire, 0, 4) === '+261') $destinataire = substr($destinataire, 4);
+            if (substr($destinataire, 0, 3) === '261') $destinataire = substr($destinataire, 3);
+            if ($destinataire !== '' && $destinataire[0] !== '0') $destinataire = '0' . $destinataire;
+
             // Vérifier si le destinataire appartient à un autre opérateur
             $prefixeDest = substr($destinataire, 0, 3);
             $autreOperateur = $prefixeAutreOperateurModel->isAutreOperateur($prefixeDest);
-            
+
             if ($autreOperateur) {
                 $estAutreOperateur = 1;
                 $idAutreOperateur = $autreOperateur['id_autre_operateur'];
@@ -177,7 +183,9 @@ class ClientController extends BaseController {
         $expediteur = $session->get('client_phone');
         if (!$expediteur) return redirect()->to('/client/login');
 
-        $destinatairesText = $this->request->getPost('destinataires');
+        // Accept both legacy textarea or new arrays
+        $postDest = $this->request->getPost('destinataires');
+        $postMontants = $this->request->getPost('montants');
         $montantTotal = floatval($this->request->getPost('montant_total'));
 
         $compteModel = new CompteModel();
@@ -187,72 +195,98 @@ class ClientController extends BaseController {
 
         $compteExp = $compteModel->where('numero_telephone', $expediteur)->first();
 
-        // Parser les destinataires
-        $destinataires = array_filter(array_map('trim', explode("\n", $destinatairesText)));
-        
-        if (empty($destinataires)) {
-            return redirect()->back()->with('error', 'Veuillez entrer au moins un destinataire.');
+        // Construire la liste de destinataires et montants
+        $pairs = [];
+        if (is_array($postDest) && is_array($postMontants)) {
+            // Nouvelle interface: arrays destinataires[] et montants[]
+            for ($i = 0; $i < count($postDest); $i++) {
+                $num = trim($postDest[$i]);
+                $mont = floatval($postMontants[$i]);
+                if ($num !== '' && $mont > 0) {
+                    // normaliser numéro
+                    $n = preg_replace('/\s+/', '', $num);
+                    if (substr($n, 0, 4) === '+261') $n = substr($n, 4);
+                    if (substr($n, 0, 3) === '261') $n = substr($n, 3);
+                    if ($n !== '' && $n[0] !== '0') $n = '0' . $n;
+                    $pairs[] = ['num' => $n, 'mont' => $mont];
+                }
+            }
+        } else {
+            // Ancienne interface: textarea et montant_total réparti
+            $destinatairesText = $this->request->getPost('destinataires');
+            $dests = array_filter(array_map('trim', explode("\n", $destinatairesText)));
+            if (!empty($dests)) {
+                $per = $montantTotal / count($dests);
+                foreach ($dests as $d) {
+                    $n = preg_replace('/\s+/', '', $d);
+                    if (substr($n, 0, 4) === '+261') $n = substr($n, 4);
+                    if (substr($n, 0, 3) === '261') $n = substr($n, 3);
+                    if ($n !== '' && $n[0] !== '0') $n = '0' . $n;
+                    $pairs[] = ['num' => $n, 'mont' => $per];
+                }
+            }
         }
 
-        $montantParDestinataire = $montantTotal / count($destinataires);
-        
-        // Calculer les frais totaux
-        $fraisRow = $baremeModel->getFrais(3, $montantParDestinataire);
-        $fraisParDestinataire = $fraisRow ? floatval($fraisRow['frais']) : 0.0;
-        $totalFrais = $fraisParDestinataire * count($destinataires);
-        $totalADebiter = $montantTotal + $totalFrais;
+        if (empty($pairs)) {
+            return redirect()->back()->with('error', 'Veuillez entrer au moins un destinataire valide.');
+        }
 
-        // Vérifier le solde
+        // Calculer les frais par destinataire séparément
+        $fraisParDestinataire = [];
+        $totalMontant = 0;
+        foreach ($pairs as $p) {
+            $totalMontant += $p['mont'];
+            $f = $baremeModel->getFrais(3, $p['mont']);
+            $fraisParDestinataire[] = $f ? floatval($f['frais']) : 0.0;
+        }
+        $totalFrais = array_sum($fraisParDestinataire);
+        $totalADebiter = $totalMontant + $totalFrais;
+
+        // Vérifier le solde global
         if ($compteExp['solde'] < $totalADebiter) {
             return redirect()->back()->with('error', 'Solde insuffisant pour le transfert multiple.');
         }
 
-        // Effectuer les transferts
+        // Effectuer les transferts en parcourant les paires (num, mont)
         $transfertsReussis = 0;
         $transfertsEchoues = [];
+        $myPrefix = substr($compteExp['numero_telephone'], 0, 3);
+        $currentSolde = $compteExp['solde'];
 
-        foreach ($destinataires as $destinataire) {
+        foreach ($pairs as $index => $p) {
+            $destinataire = $p['num'];
+            $montantPar = $p['mont'];
+
+            // Vérifier opérateur identique (pour transfert multiple)
+            $prefixeDest = substr($destinataire, 0, 3);
+            if ($prefixeDest !== $myPrefix) {
+                $transfertsEchoues[] = "$destinataire (différent opérateur)";
+                continue;
+            }
+
             $compteDest = $compteModel->where('numero_telephone', $destinataire)->first();
-            
             if (!$compteDest) {
                 $transfertsEchoues[] = "$destinataire (numéro inexistant)";
                 continue;
             }
 
-            // Vérifier si autre opérateur
-            $prefixeDest = substr($destinataire, 0, 3);
-            $autreOperateur = $prefixeAutreOperateurModel->isAutreOperateur($prefixeDest);
-            
-            $estAutreOperateur = 0;
-            $idAutreOperateur = null;
-            $commissionSupplementaire = 0.0;
-            $frais = $fraisParDestinataire;
+            // Calcul des frais pour ce montant
+            $frais = isset($fraisParDestinataire[$index]) ? $fraisParDestinataire[$index] : 0.0;
 
-            if ($autreOperateur) {
-                $estAutreOperateur = 1;
-                $idAutreOperateur = $autreOperateur['id_autre_operateur'];
-                $commissionSupplementaire = ($montantParDestinataire * $autreOperateur['commission_pourcentage']) / 100;
-                $frais += $commissionSupplementaire;
-            }
+            // Débit source et crédit cible (mettre à jour le solde courant)
+            $currentSolde -= ($montantPar + $frais);
+            $compteModel->update($compteExp['id'], ['solde' => $currentSolde]);
 
-            // Débiter et créditer
-            $compteModel->update($compteExp['id'], ['solde' => $compteExp['solde'] - ($montantParDestinataire + $frais)]);
-            $compteModel->update($compteDest['id'], ['solde' => $compteDest['solde'] + $montantParDestinataire]);
+            $compteModel->update($compteDest['id'], ['solde' => $compteDest['solde'] + $montantPar]);
 
             // Enregistrer l'opération
             $operationData = [
                 'id_type_operation'  => 3,
                 'numero_expediteur'   => $expediteur,
                 'numero_destinataire' => $destinataire,
-                'montant'             => $montantParDestinataire,
+                'montant'             => $montantPar,
                 'frais'               => $frais
             ];
-
-            if ($estAutreOperateur) {
-                $operationData['est_autre_operateur'] = $estAutreOperateur;
-                $operationData['id_autre_operateur'] = $idAutreOperateur;
-                $operationData['commission_supplementaire'] = $commissionSupplementaire;
-            }
 
             $operationModel->insert($operationData);
             $transfertsReussis++;
