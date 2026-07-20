@@ -45,13 +45,25 @@
 
     <div class="cards-grid">
         <!-- BLOC SOLDE ACTUEL -->
-        <div class="balance-card">
-            <div class="balance-label">
-                <i class="bi bi-wallet"></i>
-                Votre Solde Actuel
+        <div class="balance-card enhanced-balance">
+            <div class="balance-top">
+                <div class="balance-label">
+                    <i class="bi bi-wallet2 balance-icon"></i>
+                    <div class="balance-title">Votre Solde Actuel</div>
+                </div>
+                <div class="balance-actions">
+                    <a href="#" class="btn-refresh" title="Actualiser le solde"><i class="bi bi-arrow-clockwise"></i></a>
+                    <a href="#" class="btn-small btn-outline" title="Recharger"><i class="bi bi-plus-lg"></i> Recharger</a>
+                </div>
             </div>
-            <div class="balance-amount">
-                <?= number_format($compte['solde'], 2, ',', ' ') ?> <span class="balance-currency">Ar</span>
+            <div class="balance-main">
+                <div class="balance-amount">
+                    <?= number_format($compte['solde'], 2, ',', ' ') ?> <span class="balance-currency">Ar</span>
+                </div>
+                <div class="balance-sub">Disponible</div>
+            </div>
+            <div class="balance-footer">
+                <div class="balance-note">Transactions récentes affichées ci-dessous</div>
             </div>
         </div>
 
@@ -163,38 +175,56 @@
                 </div>
 
                 <div class="tab-content" id="transfert-multiple">
-                    <form action="<?= base_url('client/transfert-multiple') ?>" method="POST">
+                    <form id="form-transfert-multiple" action="<?= base_url('client/transfert-multiple') ?>" method="POST">
                         <div class="form-group">
-                            <label class="form-label">Numéros des destinataires (un par ligne)</label>
-                            <textarea name="destinataires" class="form-control" rows="4" placeholder="037XXXXXXX&#10;038XXXXXXX&#10;032XXXXXXX" required id="destinataires-multiple"></textarea>
-                            <small style="color: #7f8c8d; font-size: 12px;">Entrez un numéro par ligne</small>
+                            <label class="form-label">Destinataires et montants</label>
+                            <div id="multi-rows" style="display: grid; gap:10px;">
+                                <div class="multi-row" style="display:flex; gap:8px; align-items:center;">
+                                    <input type="tel" name="destinataires[]" class="form-control" placeholder="Numéro (Ex: 037XXXXXXX)" required style="flex:3;">
+                                    <input type="number" name="montants[]" class="form-control montant-item" placeholder="Montant (Ar)" required min="100" style="flex:2;">
+                                    <button type="button" class="btn btn-danger remove-row" style="flex:0 0 auto; padding:6px 10px;">×</button>
+                                </div>
+                            </div>
+                            <div style="margin-top:10px; display:flex; gap:10px;">
+                                <button type="button" id="add-row" class="btn btn-outline-primary" style="padding:8px 12px;"><i class="bi bi-plus-lg"></i> Ajouter</button>
+                                <button type="button" id="clear-rows" class="btn btn-outline-secondary" style="padding:8px 12px;">Effacer</button>
+                            </div>
+                            <small style="color: #7f8c8d; font-size: 12px;">Un champ par destinataire — spécifiez le montant pour chaque numéro.</small>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label">Montant total à transférer (Ar)</label>
-                            <input type="number" name="montant_total" class="form-control" placeholder="Montant total" required min="100" id="montant-total-multiple">
-                        </div>
+
                         <div id="preview-multiple" style="display: none; background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">
                             <div style="font-weight: 600; color: #2c3e50; margin-bottom: 10px;">
                                 <i class="bi bi-info-circle"></i> Prévisualisation
                             </div>
                             <div style="font-size: 14px; color: #7f8c8d;">
                                 <div>Nombre de destinataires: <strong id="nb-destinataires">0</strong></div>
-                                <div>Montant par destinataire: <strong id="montant-par-destinataire">0 Ar</strong></div>
+                                <div>Montant total: <strong id="montant-total-preview">0 Ar</strong></div>
+                                <div>Frais total estimé: <strong id="frais-total-preview">0 Ar</strong></div>
+                                <div>Total à débiter: <strong id="total-debiter-preview">0 Ar</strong></div>
                             </div>
                         </div>
+
                         <div class="fee-display" id="transfert-multiple-fee" style="display: none;">
-                            <span class="fee-label">Frais par destinataire :</span>
+                            <span class="fee-label">Détails frais :</span>
                             <span class="fee-amount">0 Ar</span>
                             <span class="fee-info"></span>
                         </div>
-                        <div class="total-display" id="transfert-multiple-total" style="display: none;">
-                            <span class="total-label">Total à débiter :</span>
-                            <span class="total-amount">0 Ar</span>
+
+                        <div style="margin-top:12px; display:flex; gap:10px; align-items:center;">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-send-plus"></i>
+                                Envoyer
+                            </button>
+                            <small style="color:#7f8c8d;">Les transferts sont effectués un par un. Assurez-vous du solde disponible.</small>
                         </div>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-send-plus"></i>
-                            Envoyer à tous
-                        </button>
+
+                        <div style="margin-top:10px;">
+                            <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+                                <input type="checkbox" name="inclure_frais_retrait" value="1" id="inclure-frais-transfert-multi">
+                                <span style="font-size:14px; color:#2c3e50;">Inclure les frais de retrait dans les montants envoyés</span>
+                            </label>
+                            <small style="color:#7f8c8d; font-size:12px;">Si coché, chaque montant est considéré TTC (les frais seront déduits du montant envoyé).</small>
+                        </div>
                     </form>
                 </div>
             </div>
@@ -368,51 +398,209 @@
         inclureFraisRetrait.addEventListener('change', updateRetraitCalculs);
     }
 
-    // Écouteur pour le transfert multiple
-    const destinatairesMultiple = document.getElementById('destinataires-multiple');
-    const montantTotalMultiple = document.getElementById('montant-total-multiple');
+    // Transfert multiple (lignes dynamiques)
+    const multiRows = document.getElementById('multi-rows');
+    const addRowBtn = document.getElementById('add-row');
+    const clearRowsBtn = document.getElementById('clear-rows');
     const previewMultiple = document.getElementById('preview-multiple');
     const nbDestinataires = document.getElementById('nb-destinataires');
-    const montantParDestinataire = document.getElementById('montant-par-destinataire');
+    const montantTotalPreview = document.getElementById('montant-total-preview');
+    const fraisTotalPreview = document.getElementById('frais-total-preview');
+    const totalDebiterPreview = document.getElementById('total-debiter-preview');
     const transfertMultipleFee = document.getElementById('transfert-multiple-fee');
-    const transfertMultipleTotal = document.getElementById('transfert-multiple-total');
 
-    function updateTransfertMultipleCalculs() {
-        const destinatairesText = destinatairesMultiple?.value || '';
-        const montantTotal = parseFloat(montantTotalMultiple?.value) || 0;
-        
-        const destinataires = destinatairesText.split('\n').filter(d => d.trim() !== '');
-        const nbDest = destinataires.length;
-        
-        if (nbDest > 0 && montantTotal > 0) {
-            const montantParDest = montantTotal / nbDest;
-            const fraisParDest = calculerFrais(montantParDest, baremesTransfert);
-            const totalFrais = fraisParDest * nbDest;
-            const totalADebiter = montantTotal + totalFrais;
-            
+    const myPrefix = '<?= substr($compte['numero_telephone'], 0, 3) ?>';
+
+    function createRow(number = '', amount = '') {
+        const row = document.createElement('div');
+        row.className = 'multi-row';
+        row.style.display = 'flex';
+        row.style.gap = '8px';
+        row.style.alignItems = 'center';
+
+        const inputNum = document.createElement('input');
+        inputNum.type = 'tel';
+        inputNum.name = 'destinataires[]';
+        inputNum.placeholder = 'Numéro (Ex: 037XXXXXXX)';
+        inputNum.required = true;
+        inputNum.className = 'form-control';
+        inputNum.style.flex = '3';
+        inputNum.value = number;
+
+        // validation: même opérateur
+        function validatePrefix() {
+            const val = inputNum.value.trim();
+            if (!val) { inputNum.classList.remove('is-invalid'); return true; }
+            const pref = val.substring(0,3);
+            if (pref !== myPrefix) {
+                inputNum.classList.add('is-invalid');
+                inputNum.title = 'Numéro d\'un autre opérateur détecté';
+                return false;
+            } else {
+                inputNum.classList.remove('is-invalid');
+                inputNum.title = '';
+                return true;
+            }
+        }
+
+        inputNum.addEventListener('blur', function(){ validatePrefix(); updateMultiPreview(); });
+
+        const inputMont = document.createElement('input');
+        inputMont.type = 'number';
+        inputMont.name = 'montants[]';
+        inputMont.placeholder = 'Montant (Ar)';
+        inputMont.required = true;
+        inputMont.min = 100;
+        inputMont.className = 'form-control montant-item';
+        inputMont.style.flex = '2';
+        inputMont.value = amount;
+
+        const btnRemove = document.createElement('button');
+        btnRemove.type = 'button';
+        btnRemove.className = 'btn btn-danger remove-row';
+        btnRemove.style.flex = '0 0 auto';
+        btnRemove.style.padding = '6px 10px';
+        btnRemove.textContent = '×';
+
+        btnRemove.addEventListener('click', function() {
+            row.remove();
+            updateMultiPreview();
+        });
+
+        inputMont.addEventListener('input', updateMultiPreview);
+        inputNum.addEventListener('input', function(){ validatePrefix(); updateMultiPreview(); });
+
+        row.appendChild(inputNum);
+        row.appendChild(inputMont);
+        row.appendChild(btnRemove);
+
+        return row;
+    }
+
+    function addRow(number = '', amount = '') {
+        const row = createRow(number, amount);
+        multiRows.appendChild(row);
+        updateMultiPreview();
+    }
+
+    function clearRows() {
+        // Remove all and add one empty
+        multiRows.innerHTML = '';
+        addRow();
+    }
+
+    function updateMultiPreview() {
+        const rows = Array.from(multiRows.querySelectorAll('.multi-row'));
+        const pairs = [];
+        let totalMontant = 0;
+        let totalFrais = 0;
+
+        rows.forEach(r => {
+            const num = r.querySelector('input[name="destinataires[]"]').value.trim();
+            const mont = parseFloat(r.querySelector('input[name="montants[]"]').value) || 0;
+            if (num && mont > 0) {
+                pairs.push({num, mont});
+                totalMontant += mont;
+                const frais = calculerFrais(mont, baremesTransfert);
+                totalFrais += frais;
+            }
+        });
+
+        if (pairs.length > 0) {
             previewMultiple.style.display = 'block';
-            nbDestinataires.textContent = nbDest;
-            montantParDestinataire.textContent = formatMontant(montantParDest);
-            
+            nbDestinataires.textContent = pairs.length;
+            montantTotalPreview.textContent = formatMontant(totalMontant);
+            fraisTotalPreview.textContent = formatMontant(totalFrais);
+            totalDebiterPreview.textContent = formatMontant(totalMontant + totalFrais);
+
             transfertMultipleFee.style.display = 'flex';
-            transfertMultipleFee.querySelector('.fee-amount').textContent = formatMontant(fraisParDest);
-            transfertMultipleFee.querySelector('.fee-info').textContent = `× ${nbDest} = ${formatMontant(totalFrais)}`;
-            
-            transfertMultipleTotal.style.display = 'flex';
-            transfertMultipleTotal.querySelector('.total-amount').textContent = formatMontant(totalADebiter);
+            transfertMultipleFee.querySelector('.fee-amount').textContent = formatMontant(totalFrais);
+            transfertMultipleFee.querySelector('.fee-info').textContent = '';
         } else {
             previewMultiple.style.display = 'none';
             transfertMultipleFee.style.display = 'none';
-            transfertMultipleTotal.style.display = 'none';
         }
     }
-    
-    if (destinatairesMultiple) {
-        destinatairesMultiple.addEventListener('input', updateTransfertMultipleCalculs);
+
+    // initialisation
+    (function initMulti() {
+        // attach handlers to existing controls
+        if (addRowBtn) addRowBtn.addEventListener('click', () => addRow());
+        if (clearRowsBtn) clearRowsBtn.addEventListener('click', clearRows);
+
+        // ensure at least one row
+        if (multiRows.querySelectorAll('.multi-row').length === 0) addRow();
+    })();
+
+    // Formatter les champs téléphoniques de la page
+    function formatPhoneRaw(value) {
+        let v = String(value || '').replace(/\s/g, '');
+        // remove +261 or leading country code
+        if (v.startsWith('261')) v = v.substring(3);
+        if (v.startsWith('+261')) v = v.substring(4);
+        // ensure leading 0 if prefix looks like 32..
+        if (v.length > 0 && !v.startsWith('0')) {
+            const firstTwo = v.substring(0,2);
+            const validPrefixes = ['32','33','34','38'];
+            if (validPrefixes.includes(firstTwo)) v = '0' + v;
+        }
+        // Format: 0XX XX XXX XX
+        let formatted = '';
+        for (let i = 0; i < v.length; i++) {
+            if (i === 3 || i === 5 || i === 8) formatted += ' ';
+            formatted += v[i];
+        }
+        return formatted;
     }
-    
-    if (montantTotalMultiple) {
-        montantTotalMultiple.addEventListener('input', updateTransfertMultipleCalculs);
+
+    function attachPhoneFormatting(input) {
+        if (!input) return;
+        input.addEventListener('input', function(e){
+            const pos = input.selectionStart;
+            const before = input.value;
+            const formatted = formatPhoneRaw(before);
+            input.value = formatted;
+        });
+        input.addEventListener('blur', function(){
+            input.value = formatPhoneRaw(input.value);
+        });
+    }
+
+    // apply to existing tel inputs
+    document.querySelectorAll('input[type="tel"]').forEach(i => attachPhoneFormatting(i));
+
+    // ensure dynamic rows get formatting when created
+    const origAddRow = addRow;
+    window.addRowWithFormat = function(number = '', amount = '') { const r = origAddRow(number, amount); const last = multiRows.lastElementChild; const tel = last.querySelector('input[name="destinataires[]"]'); attachPhoneFormatting(tel); return r; };
+    // override addRow usage in this file
+    addRow = function(n,a){ return window.addRowWithFormat(n,a); };
+
+    // Validation à la soumission: empêcher numéros d'autres opérateurs
+    const formMulti = document.getElementById('form-transfert-multiple');
+    if (formMulti) {
+        formMulti.addEventListener('submit', function(e) {
+            const invalids = multiRows.querySelectorAll('input[name="destinataires[]"].is-invalid');
+            if (invalids.length > 0) {
+                e.preventDefault();
+                alert('Erreur: un ou plusieurs numéros appartiennent à un autre opérateur.');
+                invalids[0].focus();
+                return false;
+            }
+
+            // vérifier au moins une ligne valide
+            const rows = Array.from(multiRows.querySelectorAll('.multi-row'));
+            let anyValid = false;
+            for (const r of rows) {
+                const num = r.querySelector('input[name="destinataires[]"]').value.trim();
+                const mont = parseFloat(r.querySelector('input[name="montants[]"]').value) || 0;
+                if (num && mont > 0) { anyValid = true; break; }
+            }
+            if (!anyValid) {
+                e.preventDefault();
+                alert('Veuillez renseigner au moins un destinataire valide avec montant.');
+                return false;
+            }
+        });
     }
 
     // Écouteur pour le transfert
