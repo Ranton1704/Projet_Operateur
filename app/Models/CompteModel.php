@@ -5,5 +5,5 @@ use CodeIgniter\Model;
 class CompteModel extends Model {
     protected $table = 'comptes';
     protected $primaryKey = 'id';
-    protected $allowedFields = ['numero_telephone', 'solde'];
+    protected $allowedFields = ['numero_telephone', 'solde', 'solde_epargne', 'epargne_pourcentage'];
 }

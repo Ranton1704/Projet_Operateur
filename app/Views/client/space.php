@@ -60,7 +60,30 @@
                 <div class="balance-sub">Disponible</div>
             </div>
             <div class="balance-footer">
-                <div class="balance-note">Transactions récentes affichées ci-dessous</div>
+                <div class="balance-note">Épargne: <?= number_format($compte['solde_epargne'] ?? 0, 2, ',', ' ') ?> Ar</div>
+            </div>
+        </div>
+
+        <!-- BLOC EPARGNE -->
+        <div class="operations-card">
+            <div class="card-header">
+                <i class="bi bi-piggy-bank"></i>
+                Épargne automatique
+            </div>
+            <div class="card-body">
+                <form action="<?= base_url('client/epargne') ?>" method="POST">
+                    <div class="form-group">
+                        <label class="form-label">Pourcentage à épargner sur chaque transfert reçu</label>
+                        <input type="number" name="epargne_pourcentage" class="form-control" min="0" max="100" step="0.01" value="<?= esc($compte['epargne_pourcentage'] ?? 0) ?>" required>
+                    </div>
+                    <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; margin: 12px 0; color: #2c3e50; font-size: 14px;">
+                        <strong>Solde épargne:</strong> <?= number_format($compte['solde_epargne'] ?? 0, 2, ',', ' ') ?> Ar
+                    </div>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check-lg"></i>
+                        Enregistrer l'épargne
+                    </button>
+                </form>
             </div>
         </div>
 

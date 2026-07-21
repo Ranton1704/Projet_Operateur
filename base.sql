@@ -62,7 +62,13 @@ CREATE TABLE comptes (
 
     solde REAL NOT NULL DEFAULT 0.0,
 
-    CHECK(solde >= 0)
+    solde_epargne REAL NOT NULL DEFAULT 0.0,
+
+    epargne_pourcentage REAL NOT NULL DEFAULT 0.0,
+
+    CHECK(solde >= 0),
+    CHECK(solde_epargne >= 0),
+    CHECK(epargne_pourcentage >= 0 AND epargne_pourcentage <= 100)
 );
 
 

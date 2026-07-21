@@ -40,6 +40,23 @@ class ClientController extends BaseController {
         return null;
     }
 
+    private function calculerRepartitionEpargne(float $montant, array $compte): array {
+        $pourcentage = max(0.0, min(100.0, floatval($compte['epargne_pourcentage'] ?? 0)));
+        $montantEpargne = ($montant * $pourcentage) / 100;
+        $montantPrincipal = $montant - $montantEpargne;
+
+        return [$montantPrincipal, $montantEpargne];
+    }
+
+    private function crediterCompteAvecEpargne(CompteModel $compteModel, array $compte, float $montant): void {
+        [$montantPrincipal, $montantEpargne] = $this->calculerRepartitionEpargne($montant, $compte);
+
+        $compteModel->update($compte['id'], [
+            'solde' => floatval($compte['solde']) + $montantPrincipal,
+            'solde_epargne' => floatval($compte['solde_epargne'] ?? 0) + $montantEpargne,
+        ]);
+    }
+
     public function login() {
         return view('client/login');
     }
@@ -61,8 +78,8 @@ class ClientController extends BaseController {
         $compte = $this->findCompteByPhone($compteModel, $phone);
         
         if (!$compte) {
-            $compteModel->insert(['numero_telephone' => $phone, 'solde' => 0.0]);
-            $compte = ['numero_telephone' => $phone, 'solde' => 0.0];
+            $compteModel->insert(['numero_telephone' => $phone, 'solde' => 0.0, 'solde_epargne' => 0.0, 'epargne_pourcentage' => 0.0]);
+            $compte = ['numero_telephone' => $phone, 'solde' => 0.0, 'solde_epargne' => 0.0, 'epargne_pourcentage' => 0.0];
         }
 
         $session->set('client_phone', $compte['numero_telephone']);
@@ -185,9 +202,9 @@ class ClientController extends BaseController {
             }
             $destinataire = $compteDest['numero_telephone'];
             
-            // Débit source, Crédit cible
+            // Débit source, crédit cible avec répartition éventuelle vers l'épargne du destinataire
             $compteModel->update($compteExp['id'], ['solde' => $compteExp['solde'] - ($montant + $frais)]);
-            $compteModel->update($compteDest['id'], ['solde' => $compteDest['solde'] + $montant]);
+            $this->crediterCompteAvecEpargne($compteModel, $compteDest, $montant);
         }
 
         // Sauvegarde dans l'historique des transactions
@@ -315,7 +332,7 @@ class ClientController extends BaseController {
             $currentSolde -= ($montantPar + $frais);
             $compteModel->update($compteExp['id'], ['solde' => $currentSolde]);
 
-            $compteModel->update($compteDest['id'], ['solde' => $compteDest['solde'] + $montantPar]);
+            $this->crediterCompteAvecEpargne($compteModel, $compteDest, $montantPar);
 
             // Enregistrer l'opération
             $operationData = [
@@ -337,6 +354,26 @@ class ClientController extends BaseController {
         }
 
         return redirect()->to('/client/space')->with('success', $message);
+    }
+
+
+    public function enregistrerEpargne() {
+        $session = session();
+        $phone = $session->get('client_phone');
+        if (!$phone) return redirect()->to('/client/login');
+
+        $compteModel = new CompteModel();
+        $compte = $this->findCompteByPhone($compteModel, $phone);
+        if (!$compte) return redirect()->back()->with('error', 'Compte introuvable.');
+
+        $pourcentage = floatval($this->request->getPost('epargne_pourcentage'));
+        if ($pourcentage < 0 || $pourcentage > 100) {
+            return redirect()->back()->with('error', "Le pourcentage d'épargne doit être entre 0 et 100.");
+        }
+
+        $compteModel->update($compte['id'], ['epargne_pourcentage' => $pourcentage]);
+
+        return redirect()->to('/client/space')->with('success', "Paramètre d'épargne enregistré.");
     }
 
     public function logout() {
