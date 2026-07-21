@@ -40,23 +40,21 @@ class ClientController extends BaseController {
         return null;
     }
 
-    private function isSameOperator(?array $operatorA, ?array $operatorB, string $prefixA, string $prefixB): bool {
-        if ($operatorA && $operatorB) {
-            return (int) $operatorA['id_autre_operateur'] === (int) $operatorB['id_autre_operateur'];
-        }
+    private function calculerRepartitionEpargne(float $montant, array $compte): array {
+        $pourcentage = max(0.0, min(100.0, floatval($compte['epargne_pourcentage'] ?? 0)));
+        $montantEpargne = ($montant * $pourcentage) / 100;
+        $montantPrincipal = $montant - $montantEpargne;
 
-        if (!$operatorA && !$operatorB) {
-            return $prefixA === $prefixB;
-        }
-
-        return false;
+        return [$montantPrincipal, $montantEpargne];
     }
 
-    private function appliquerPromotionSurFrais(float $frais, ?array $bareme): float {
-        $promotion = $bareme ? floatval($bareme['promotion_pourcentage'] ?? 0) : 0.0;
-        $promotion = max(0.0, min(100.0, $promotion));
+    private function crediterCompteAvecEpargne(CompteModel $compteModel, array $compte, float $montant): void {
+        [$montantPrincipal, $montantEpargne] = $this->calculerRepartitionEpargne($montant, $compte);
 
-        return max(0.0, $frais - (($frais * $promotion) / 100));
+        $compteModel->update($compte['id'], [
+            'solde' => floatval($compte['solde']) + $montantPrincipal,
+            'solde_epargne' => floatval($compte['solde_epargne'] ?? 0) + $montantEpargne,
+        ]);
     }
 
     public function login() {
@@ -80,8 +78,8 @@ class ClientController extends BaseController {
         $compte = $this->findCompteByPhone($compteModel, $phone);
         
         if (!$compte) {
-            $compteModel->insert(['numero_telephone' => $phone, 'solde' => 0.0]);
-            $compte = ['numero_telephone' => $phone, 'solde' => 0.0];
+            $compteModel->insert(['numero_telephone' => $phone, 'solde' => 0.0, 'solde_epargne' => 0.0, 'epargne_pourcentage' => 0.0]);
+            $compte = ['numero_telephone' => $phone, 'solde' => 0.0, 'solde_epargne' => 0.0, 'epargne_pourcentage' => 0.0];
         }
 
         $session->set('client_phone', $compte['numero_telephone']);
@@ -128,10 +126,6 @@ class ClientController extends BaseController {
         // Récupération des barèmes de frais pour le calcul en temps réel
         $data['baremes_retrait'] = $baremeModel->where('id_type_operation', 2)->findAll();
         $data['baremes_transfert'] = $baremeModel->where('id_type_operation', 3)->findAll();
-        $data['prefixes_operateurs'] = (new PrefixeAutreOperateurModel())
-            ->select('prefixes.prefixe, prefixes_autres_operateurs.id_autre_operateur')
-            ->join('prefixes', 'prefixes.id = prefixes_autres_operateurs.id_prefixe')
-            ->findAll();
 
         return view('client/space', $data);
     }
@@ -186,16 +180,11 @@ class ClientController extends BaseController {
             // Normalisation du numéro destinataire
             $destinataire = $this->normalizePhone((string) $destinataire);
 
-            // Vérifier si le destinataire est du même opérateur que l'expéditeur
-            $prefixeExp = substr($expediteur, 0, 3);
+            // Vérifier si le destinataire appartient à un autre opérateur
             $prefixeDest = substr($destinataire, 0, 3);
-            $operateurExp = $prefixeAutreOperateurModel->isAutreOperateur($prefixeExp);
             $autreOperateur = $prefixeAutreOperateurModel->isAutreOperateur($prefixeDest);
-            $memeOperateur = $this->isSameOperator($operateurExp, $autreOperateur, $prefixeExp, $prefixeDest);
 
-            if ($memeOperateur) {
-                $frais = $this->appliquerPromotionSurFrais($frais, $fraisRow);
-            } elseif ($autreOperateur) {
+            if ($autreOperateur) {
                 $estAutreOperateur = 1;
                 $idAutreOperateur = $autreOperateur['id_autre_operateur'];
                 // Calcul de la commission supplémentaire en pourcentage
@@ -213,9 +202,9 @@ class ClientController extends BaseController {
             }
             $destinataire = $compteDest['numero_telephone'];
             
-            // Débit source, Crédit cible
+            // Débit source, crédit cible avec répartition éventuelle vers l'épargne du destinataire
             $compteModel->update($compteExp['id'], ['solde' => $compteExp['solde'] - ($montant + $frais)]);
-            $compteModel->update($compteDest['id'], ['solde' => $compteDest['solde'] + $montant]);
+            $this->crediterCompteAvecEpargne($compteModel, $compteDest, $montant);
         }
 
         // Sauvegarde dans l'historique des transactions
@@ -287,38 +276,30 @@ class ClientController extends BaseController {
         }
 
         $commonPrefix = null;
-        $operatorInfo = null;
         foreach ($pairs as $pair) {
             $prefix = substr($pair['num'], 0, 3);
-            $operator = $prefixeAutreOperateurModel->isAutreOperateur($prefix);
             if ($commonPrefix === null) {
                 $commonPrefix = $prefix;
-                $operatorInfo = $operator;
                 continue;
             }
 
-            if (!$this->isSameOperator($operatorInfo, $operator, $commonPrefix, $prefix)) {
+            if ($prefix !== $commonPrefix) {
                 return redirect()->back()->with('error', 'Tous les numéros du transfert multiple doivent appartenir au même opérateur.');
             }
         }
 
-        $prefixeExp = substr($expediteur, 0, 3);
-        $operatorExp = $prefixeAutreOperateurModel->isAutreOperateur($prefixeExp);
-        $memeOperateur = $this->isSameOperator($operatorExp, $operatorInfo, $prefixeExp, $commonPrefix);
-        $commissionPourcentage = (!$memeOperateur && $operatorInfo) ? floatval($operatorInfo['commission_pourcentage']) : 0.0;
+        $operatorInfo = $prefixeAutreOperateurModel->isAutreOperateur($commonPrefix);
+        $commissionPourcentage = $operatorInfo ? floatval($operatorInfo['commission_pourcentage']) : 0.0;
 
         // Calculer les frais par destinataire séparément
         $fraisParDestinataire = [];
-        $commissionsParDestinataire = [];
         $totalMontant = 0;
         foreach ($pairs as $p) {
             $totalMontant += $p['mont'];
             $f = $baremeModel->getFrais(3, $p['mont']);
             $fraisBase = $f ? floatval($f['frais']) : 0.0;
             $commission = $commissionPourcentage > 0 ? (($p['mont'] * $commissionPourcentage) / 100) : 0.0;
-            $frais = $memeOperateur ? $this->appliquerPromotionSurFrais($fraisBase, $f) : ($fraisBase + $commission);
-            $fraisParDestinataire[] = $frais;
-            $commissionsParDestinataire[] = $commission;
+            $fraisParDestinataire[] = $fraisBase + $commission;
         }
         $totalFrais = array_sum($fraisParDestinataire);
         $totalADebiter = $totalMontant + $totalFrais;
@@ -351,7 +332,7 @@ class ClientController extends BaseController {
             $currentSolde -= ($montantPar + $frais);
             $compteModel->update($compteExp['id'], ['solde' => $currentSolde]);
 
-            $compteModel->update($compteDest['id'], ['solde' => $compteDest['solde'] + $montantPar]);
+            $this->crediterCompteAvecEpargne($compteModel, $compteDest, $montantPar);
 
             // Enregistrer l'opération
             $operationData = [
@@ -361,12 +342,6 @@ class ClientController extends BaseController {
                 'montant'             => $montantPar,
                 'frais'               => $frais
             ];
-
-            if (!$memeOperateur && $operatorInfo) {
-                $operationData['est_autre_operateur'] = 1;
-                $operationData['id_autre_operateur'] = $operatorInfo['id_autre_operateur'];
-                $operationData['commission_supplementaire'] = $commissionsParDestinataire[$index] ?? 0.0;
-            }
 
             $operationModel->insert($operationData);
             $transfertsReussis++;
@@ -379,6 +354,26 @@ class ClientController extends BaseController {
         }
 
         return redirect()->to('/client/space')->with('success', $message);
+    }
+
+
+    public function enregistrerEpargne() {
+        $session = session();
+        $phone = $session->get('client_phone');
+        if (!$phone) return redirect()->to('/client/login');
+
+        $compteModel = new CompteModel();
+        $compte = $this->findCompteByPhone($compteModel, $phone);
+        if (!$compte) return redirect()->back()->with('error', 'Compte introuvable.');
+
+        $pourcentage = floatval($this->request->getPost('epargne_pourcentage'));
+        if ($pourcentage < 0 || $pourcentage > 100) {
+            return redirect()->back()->with('error', "Le pourcentage d'épargne doit être entre 0 et 100.");
+        }
+
+        $compteModel->update($compte['id'], ['epargne_pourcentage' => $pourcentage]);
+
+        return redirect()->to('/client/space')->with('success', "Paramètre d'épargne enregistré.");
     }
 
     public function logout() {
