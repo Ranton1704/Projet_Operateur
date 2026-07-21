@@ -24,32 +24,91 @@ class OperationModel extends Model {
                                 ->groupBy('operations.id_type_operation')
                                 ->findAll();
 
-        // Gains des autres opérateurs (transferts externes)
-        $gainsAutresOperateurs = $this->select('autres_operateurs.nom as operateur_nom, types_operation.nom as type_nom, 
-                                                    SUM(operations.frais) as total_frais, 
-                                                    SUM(operations.commission_supplementaire) as total_commission')
-                                        ->join('autres_operateurs', 'autres_operateurs.id = operations.id_autre_operateur')
-                                        ->join('types_operation', 'types_operation.id = operations.id_type_operation')
-                                        ->where('est_autre_operateur', 1)
-                                        ->groupBy('operations.id_autre_operateur, operations.id_type_operation')
-                                        ->findAll();
+        // Gains des autres opérateurs (détection par id_autre_operateur ou par préfixe)
+        $operationsExternes = $this->select('operations.id_autre_operateur, operations.frais, operations.commission_supplementaire, types_operation.nom as type_nom,
+                                            COALESCE(operations.id_autre_operateur, pa.id_autre_operateur) as operateur_id,
+                                            COALESCE(ao_direct.nom, ao_prefixe.nom) as operateur_nom')
+                                    ->join('types_operation', 'types_operation.id = operations.id_type_operation')
+                                    ->join('prefixes p', "p.prefixe = substr(replace(operations.numero_destinataire, ' ', ''), 1, 3)", 'left', false)
+                                    ->join('prefixes_autres_operateurs pa', 'pa.id_prefixe = p.id', 'left')
+                                    ->join('autres_operateurs ao_direct', 'ao_direct.id = operations.id_autre_operateur', 'left')
+                                    ->join('autres_operateurs ao_prefixe', 'ao_prefixe.id = pa.id_autre_operateur', 'left')
+                                    ->groupStart()
+                                        ->where('operations.est_autre_operateur', 1)
+                                        ->orWhere('operations.id_autre_operateur IS NOT NULL', null, false)
+                                        ->orWhere('pa.id_autre_operateur IS NOT NULL', null, false)
+                                    ->groupEnd()
+                                    ->findAll();
+
+        $gainsAutresOperateursMap = [];
+        foreach ($operationsExternes as $op) {
+            $operateurId = $op['operateur_id'] ?? null;
+            $operateurNom = $op['operateur_nom'] ?? null;
+
+            if (!$operateurId || !$operateurNom) {
+                continue;
+            }
+
+            $key = $operateurId . '|' . $op['type_nom'];
+            if (!isset($gainsAutresOperateursMap[$key])) {
+                $gainsAutresOperateursMap[$key] = [
+                    'operateur_nom' => $operateurNom,
+                    'type_nom' => $op['type_nom'],
+                    'total_frais' => 0,
+                    'total_commission' => 0,
+                ];
+            }
+
+            $gainsAutresOperateursMap[$key]['total_frais'] += floatval($op['frais']);
+            $gainsAutresOperateursMap[$key]['total_commission'] += floatval($op['commission_supplementaire']);
+        }
 
         return [
             'operateur' => $gainsOperateur,
-            'autres_operateurs' => $gainsAutresOperateurs
+            'autres_operateurs' => array_values($gainsAutresOperateursMap)
         ];
     }
 
     // Situation des montants à envoyer à chaque opérateur
     public function getMontantsParOperateur() {
-        return $this->select('autres_operateurs.nom, autres_operateurs.commission_pourcentage,
-                                COUNT(operations.id) as nombre_transferts,
-                                SUM(operations.montant) as total_montant,
-                                SUM(operations.commission_supplementaire) as total_commission')
-                    ->join('autres_operateurs', 'autres_operateurs.id = operations.id_autre_operateur')
-                    ->where('est_autre_operateur', 1)
-                    ->where('id_type_operation', 3) // Transferts uniquement
-                    ->groupBy('operations.id_autre_operateur')
-                    ->findAll();
+        $operations = $this->select('operations.id_autre_operateur, operations.numero_destinataire, operations.montant, operations.commission_supplementaire,
+                                    COALESCE(operations.id_autre_operateur, pa.id_autre_operateur) as operateur_id,
+                                    COALESCE(ao_direct.nom, ao_prefixe.nom) as nom,
+                                    COALESCE(ao_direct.commission_pourcentage, ao_prefixe.commission_pourcentage) as commission_pourcentage')
+                            ->join('prefixes p', "p.prefixe = substr(replace(operations.numero_destinataire, ' ', ''), 1, 3)", 'left', false)
+                            ->join('prefixes_autres_operateurs pa', 'pa.id_prefixe = p.id', 'left')
+                            ->join('autres_operateurs ao_direct', 'ao_direct.id = operations.id_autre_operateur', 'left')
+                            ->join('autres_operateurs ao_prefixe', 'ao_prefixe.id = pa.id_autre_operateur', 'left')
+                            ->where('operations.id_type_operation', 3)
+                            ->groupStart()
+                                ->where('operations.est_autre_operateur', 1)
+                                ->orWhere('operations.id_autre_operateur IS NOT NULL', null, false)
+                                ->orWhere('pa.id_autre_operateur IS NOT NULL', null, false)
+                            ->groupEnd()
+                            ->findAll();
+
+        $grouped = [];
+        foreach ($operations as $op) {
+            if (empty($op['operateur_id']) || empty($op['nom'])) {
+                continue;
+            }
+
+            $key = $op['operateur_id'];
+            if (!isset($grouped[$key])) {
+                $grouped[$key] = [
+                    'nom' => $op['nom'],
+                    'commission_pourcentage' => floatval($op['commission_pourcentage']),
+                    'nombre_transferts' => 0,
+                    'total_montant' => 0,
+                    'total_commission' => 0,
+                ];
+            }
+
+            $grouped[$key]['nombre_transferts']++;
+            $grouped[$key]['total_montant'] += floatval($op['montant']);
+            $grouped[$key]['total_commission'] += floatval($op['commission_supplementaire']);
+        }
+
+        return array_values($grouped);
     }
 }
