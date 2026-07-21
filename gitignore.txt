@@ -1,0 +1,10 @@
+# Dossiers de builds et dépendances Composer
+/vendor/
+/node_modules/
+
+# Fichiers temporaires, caches et logs de CodeIgniter 4
+/writable/cache/*
+/writable/logs/*
+/writable/session/*
+/writable/debugbar/*
+

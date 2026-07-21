@@ -41,10 +41,16 @@
                                 <input type="number" name="montant_max" id="frais-max" class="form-control" required min="1">
                             </div>
                         </div>
-                        <div style="grid-column: span 3;">
+                        <div style="grid-column: span 2;">
                             <div class="form-group">
                                 <label class="form-label">Frais (Ar)</label>
                                 <input type="number" name="frais" id="frais-val" class="form-control" required min="0">
+                            </div>
+                        </div>
+                        <div style="grid-column: span 2;">
+                            <div class="form-group">
+                                <label class="form-label">Promotion même opérateur (%)</label>
+                                <input type="number" name="promotion_pourcentage" id="frais-promo" class="form-control" required min="0" max="100" step="0.01" value="0">
                             </div>
                         </div>
                     </div>
@@ -72,6 +78,7 @@
                                         <tr>
                                             <th>Tranche de montant</th>
                                             <th>Frais</th>
+                                            <th>Promo même op.</th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
@@ -80,8 +87,9 @@
                                             <tr>
                                                 <td>Entre <?= number_format($b['montant_min'], 0, ',', ' ') ?> et <?= number_format($b['montant_max'], 0, ',', ' ') ?> Ar</td>
                                                 <td class="fw-bold" style="color: #e74c3c;"><?= number_format($b['frais'], 0, ',', ' ') ?> Ar</td>
+                                                <td><?= number_format($b['promotion_pourcentage'] ?? 0, 2, ',', ' ') ?>%</td>
                                                 <td>
-                                                    <button class="btn btn-primary" style="padding: 8px 15px; font-size: 13px;" onclick="editFrais(<?= $b['id'] ?>, 2, <?= $b['montant_min'] ?>, <?= $b['montant_max'] ?>, <?= $b['frais'] ?>)">
+                                                    <button class="btn btn-primary" style="padding: 8px 15px; font-size: 13px;" onclick="editFrais(<?= $b['id'] ?>, 2, <?= $b['montant_min'] ?>, <?= $b['montant_max'] ?>, <?= $b['frais'] ?>, <?= $b['promotion_pourcentage'] ?? 0 ?>)">
                                                         <i class="bi bi-pencil"></i>
                                                     </button>
                                                     <a href="<?= base_url('operateur/frais/supprimer/'.$b['id']) ?>" class="btn btn-warning" style="padding: 8px 15px; font-size: 13px; color: white;" onclick="return confirm('Supprimer ?')">
@@ -111,6 +119,7 @@
                                         <tr>
                                             <th>Tranche de montant</th>
                                             <th>Frais</th>
+                                            <th>Promo même op.</th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
@@ -119,8 +128,9 @@
                                             <tr>
                                                 <td>Entre <?= number_format($b['montant_min'], 0, ',', ' ') ?> et <?= number_format($b['montant_max'], 0, ',', ' ') ?> Ar</td>
                                                 <td class="fw-bold" style="color: #e74c3c;"><?= number_format($b['frais'], 0, ',', ' ') ?> Ar</td>
+                                                <td><?= number_format($b['promotion_pourcentage'] ?? 0, 2, ',', ' ') ?>%</td>
                                                 <td>
-                                                    <button class="btn btn-primary" style="padding: 8px 15px; font-size: 13px;" onclick="editFrais(<?= $b['id'] ?>, 3, <?= $b['montant_min'] ?>, <?= $b['montant_max'] ?>, <?= $b['frais'] ?>)">
+                                                    <button class="btn btn-primary" style="padding: 8px 15px; font-size: 13px;" onclick="editFrais(<?= $b['id'] ?>, 3, <?= $b['montant_min'] ?>, <?= $b['montant_max'] ?>, <?= $b['frais'] ?>, <?= $b['promotion_pourcentage'] ?? 0 ?>)">
                                                         <i class="bi bi-pencil"></i>
                                                     </button>
                                                     <a href="<?= base_url('operateur/frais/supprimer/'.$b['id']) ?>" class="btn btn-warning" style="padding: 8px 15px; font-size: 13px; color: white;" onclick="return confirm('Supprimer ?')">
@@ -146,12 +156,13 @@ function toggleForm() {
     formContainer.style.display = formContainer.style.display === 'none' ? 'block' : 'none';
 }
 
-function editFrais(id, type, min, max, frais) {
+function editFrais(id, type, min, max, frais, promotion = 0) {
     document.getElementById('frais-id').value = id;
     document.getElementById('frais-type').value = type;
     document.getElementById('frais-min').value = min;
     document.getElementById('frais-max').value = max;
     document.getElementById('frais-val').value = frais;
+    document.getElementById('frais-promo').value = promotion;
     document.getElementById('btn-submit').textContent = 'Modifier';
     document.getElementById('btn-cancel').classList.remove('d-none');
     document.getElementById('frais-form-container').style.display = 'block';

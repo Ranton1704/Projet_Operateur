@@ -149,7 +149,7 @@
                         <input type="hidden" name="type" value="transfert">
                         <div class="form-group">
                             <label class="form-label">Numéro du destinataire</label>
-                            <input type="tel" name="destinataire" class="form-control" placeholder="Ex: 037XXXXXXX" required>
+                            <input type="tel" name="destinataire" class="form-control" placeholder="Ex: 037XXXXXXX" required id="transfert-destinataire">
                         </div>
                         <div class="form-group">
                             <label class="form-label">Montant à transférer (Ar)</label>
@@ -317,6 +317,8 @@
     // Barèmes de frais depuis PHP
     const baremesRetrait = <?php echo json_encode($baremes_retrait ?? []); ?>;
     const baremesTransfert = <?php echo json_encode($baremes_transfert ?? []); ?>;
+    const prefixesOperateurs = <?php echo json_encode($prefixes_operateurs ?? []); ?>;
+    const clientPhone = <?php echo json_encode($compte['numero_telephone'] ?? ''); ?>;
 
     // Fonction pour calculer les frais selon le barème
     function calculerFrais(montant, baremes) {
@@ -328,6 +330,47 @@
             }
         }
         return 0;
+    }
+
+    function getBaremeFrais(montant, baremes) {
+        if (!baremes || baremes.length === 0) return null;
+
+        for (const bareme of baremes) {
+            if (montant >= bareme.montant_min && montant <= bareme.montant_max) {
+                return bareme;
+            }
+        }
+        return null;
+    }
+
+    function getOperateurByPrefix(prefix) {
+        const match = prefixesOperateurs.find(item => item.prefixe === prefix);
+        return match ? String(match.id_autre_operateur) : null;
+    }
+
+    function areSameOperatorPrefixes(prefixA, prefixB) {
+        if (!prefixA || !prefixB) return false;
+
+        const operateurA = getOperateurByPrefix(prefixA);
+        const operateurB = getOperateurByPrefix(prefixB);
+        if (operateurA && operateurB) return operateurA === operateurB;
+        if (!operateurA && !operateurB) return prefixA === prefixB;
+        return false;
+    }
+
+    function isMemeOperateurClient(destinataire) {
+        return areSameOperatorPrefixes(extractPrefix(clientPhone), extractPrefix(destinataire));
+    }
+
+    function appliquerPromotionSurFrais(frais, bareme) {
+        const promotion = Math.max(0, Math.min(100, parseFloat(bareme?.promotion_pourcentage || 0)));
+        return Math.max(0, frais - ((frais * promotion) / 100));
+    }
+
+    function calculerFraisTransfert(montant, destinataire) {
+        const bareme = getBaremeFrais(montant, baremesTransfert);
+        const fraisBase = bareme ? parseFloat(bareme.frais) : 0;
+        return isMemeOperateurClient(destinataire) ? appliquerPromotionSurFrais(fraisBase, bareme) : fraisBase;
     }
 
     // Fonction pour formater les montants
@@ -452,7 +495,7 @@
             const referencePrefix = refRow ? extractPrefix(refRow.querySelector('input[name="destinataires[]"]').value) : extractPrefix(val);
             const pref = extractPrefix(val);
 
-            if (referencePrefix && pref && pref !== referencePrefix) {
+            if (referencePrefix && pref && !areSameOperatorPrefixes(referencePrefix, pref)) {
                 inputNum.classList.add('is-invalid');
                 inputNum.title = 'Tous les numéros doivent appartenir au même opérateur';
                 return false;
@@ -517,7 +560,7 @@
             const montantPar = montantTotal / pairs.length;
             totalMontant = montantTotal;
             pairs.forEach(() => {
-                const frais = calculerFrais(montantPar, baremesTransfert);
+                const frais = calculerFraisTransfert(montantPar, pairs[0]?.num || '');
                 totalFrais += frais;
             });
 
@@ -525,7 +568,7 @@
                 const prefix = extractPrefix(pair.num);
                 if (!referencePrefix) {
                     referencePrefix = prefix;
-                } else if (prefix && prefix !== referencePrefix) {
+                } else if (prefix && !areSameOperatorPrefixes(referencePrefix, prefix)) {
                     sameOperator = false;
                 }
             });
@@ -616,7 +659,7 @@
                     const pref = extractPrefix(num);
                     if (!referencePrefix) {
                         referencePrefix = pref;
-                    } else if (pref && pref !== referencePrefix) {
+                    } else if (pref && !areSameOperatorPrefixes(referencePrefix, pref)) {
                         e.preventDefault();
                         alert('Tous les numéros du transfert multiple doivent appartenir au même opérateur.');
                         return false;
@@ -640,28 +683,31 @@
 
     // Écouteur pour le transfert
     const transfertMontant = document.getElementById('transfert-montant');
+    const transfertDestinataire = document.getElementById('transfert-destinataire');
     const transfertFee = document.getElementById('transfert-fee');
     const transfertTotal = document.getElementById('transfert-total');
-    
-    if (transfertMontant) {
-        transfertMontant.addEventListener('input', function() {
-            const montant = parseFloat(this.value) || 0;
-            if (montant > 0) {
-                const frais = calculerFrais(montant, baremesTransfert);
-                const total = montant + frais;
-                
-                transfertFee.style.display = 'flex';
-                transfertFee.querySelector('.fee-amount').textContent = formatMontant(frais);
-                transfertFee.querySelector('.fee-info').textContent = frais > 0 ? '' : '(Gratuit)';
-                
-                transfertTotal.style.display = 'flex';
-                transfertTotal.querySelector('.total-amount').textContent = formatMontant(total);
-            } else {
-                transfertFee.style.display = 'none';
-                transfertTotal.style.display = 'none';
-            }
-        });
+
+    function updateTransfertCalculs() {
+        const montant = parseFloat(transfertMontant?.value) || 0;
+        const destinataire = transfertDestinataire?.value || '';
+        if (montant > 0) {
+            const frais = calculerFraisTransfert(montant, destinataire);
+            const total = montant + frais;
+
+            transfertFee.style.display = 'flex';
+            transfertFee.querySelector('.fee-amount').textContent = formatMontant(frais);
+            transfertFee.querySelector('.fee-info').textContent = frais > 0 ? '' : '(Gratuit)';
+
+            transfertTotal.style.display = 'flex';
+            transfertTotal.querySelector('.total-amount').textContent = formatMontant(total);
+        } else {
+            transfertFee.style.display = 'none';
+            transfertTotal.style.display = 'none';
+        }
     }
+
+    if (transfertMontant) transfertMontant.addEventListener('input', updateTransfertCalculs);
+    if (transfertDestinataire) transfertDestinataire.addEventListener('input', updateTransfertCalculs);
 
     // Filtrage en temps réel de l'historique
     const dateDebut = document.querySelector('input[name="date_debut"]');

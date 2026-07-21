@@ -40,6 +40,25 @@ class ClientController extends BaseController {
         return null;
     }
 
+    private function isSameOperator(?array $operatorA, ?array $operatorB, string $prefixA, string $prefixB): bool {
+        if ($operatorA && $operatorB) {
+            return (int) $operatorA['id_autre_operateur'] === (int) $operatorB['id_autre_operateur'];
+        }
+
+        if (!$operatorA && !$operatorB) {
+            return $prefixA === $prefixB;
+        }
+
+        return false;
+    }
+
+    private function appliquerPromotionSurFrais(float $frais, ?array $bareme): float {
+        $promotion = $bareme ? floatval($bareme['promotion_pourcentage'] ?? 0) : 0.0;
+        $promotion = max(0.0, min(100.0, $promotion));
+
+        return max(0.0, $frais - (($frais * $promotion) / 100));
+    }
+
     public function login() {
         return view('client/login');
     }
@@ -109,6 +128,10 @@ class ClientController extends BaseController {
         // Récupération des barèmes de frais pour le calcul en temps réel
         $data['baremes_retrait'] = $baremeModel->where('id_type_operation', 2)->findAll();
         $data['baremes_transfert'] = $baremeModel->where('id_type_operation', 3)->findAll();
+        $data['prefixes_operateurs'] = (new PrefixeAutreOperateurModel())
+            ->select('prefixes.prefixe, prefixes_autres_operateurs.id_autre_operateur')
+            ->join('prefixes', 'prefixes.id = prefixes_autres_operateurs.id_prefixe')
+            ->findAll();
 
         return view('client/space', $data);
     }
@@ -163,11 +186,16 @@ class ClientController extends BaseController {
             // Normalisation du numéro destinataire
             $destinataire = $this->normalizePhone((string) $destinataire);
 
-            // Vérifier si le destinataire appartient à un autre opérateur
+            // Vérifier si le destinataire est du même opérateur que l'expéditeur
+            $prefixeExp = substr($expediteur, 0, 3);
             $prefixeDest = substr($destinataire, 0, 3);
+            $operateurExp = $prefixeAutreOperateurModel->isAutreOperateur($prefixeExp);
             $autreOperateur = $prefixeAutreOperateurModel->isAutreOperateur($prefixeDest);
+            $memeOperateur = $this->isSameOperator($operateurExp, $autreOperateur, $prefixeExp, $prefixeDest);
 
-            if ($autreOperateur) {
+            if ($memeOperateur) {
+                $frais = $this->appliquerPromotionSurFrais($frais, $fraisRow);
+            } elseif ($autreOperateur) {
                 $estAutreOperateur = 1;
                 $idAutreOperateur = $autreOperateur['id_autre_operateur'];
                 // Calcul de la commission supplémentaire en pourcentage
@@ -259,30 +287,38 @@ class ClientController extends BaseController {
         }
 
         $commonPrefix = null;
+        $operatorInfo = null;
         foreach ($pairs as $pair) {
             $prefix = substr($pair['num'], 0, 3);
+            $operator = $prefixeAutreOperateurModel->isAutreOperateur($prefix);
             if ($commonPrefix === null) {
                 $commonPrefix = $prefix;
+                $operatorInfo = $operator;
                 continue;
             }
 
-            if ($prefix !== $commonPrefix) {
+            if (!$this->isSameOperator($operatorInfo, $operator, $commonPrefix, $prefix)) {
                 return redirect()->back()->with('error', 'Tous les numéros du transfert multiple doivent appartenir au même opérateur.');
             }
         }
 
-        $operatorInfo = $prefixeAutreOperateurModel->isAutreOperateur($commonPrefix);
-        $commissionPourcentage = $operatorInfo ? floatval($operatorInfo['commission_pourcentage']) : 0.0;
+        $prefixeExp = substr($expediteur, 0, 3);
+        $operatorExp = $prefixeAutreOperateurModel->isAutreOperateur($prefixeExp);
+        $memeOperateur = $this->isSameOperator($operatorExp, $operatorInfo, $prefixeExp, $commonPrefix);
+        $commissionPourcentage = (!$memeOperateur && $operatorInfo) ? floatval($operatorInfo['commission_pourcentage']) : 0.0;
 
         // Calculer les frais par destinataire séparément
         $fraisParDestinataire = [];
+        $commissionsParDestinataire = [];
         $totalMontant = 0;
         foreach ($pairs as $p) {
             $totalMontant += $p['mont'];
             $f = $baremeModel->getFrais(3, $p['mont']);
             $fraisBase = $f ? floatval($f['frais']) : 0.0;
             $commission = $commissionPourcentage > 0 ? (($p['mont'] * $commissionPourcentage) / 100) : 0.0;
-            $fraisParDestinataire[] = $fraisBase + $commission;
+            $frais = $memeOperateur ? $this->appliquerPromotionSurFrais($fraisBase, $f) : ($fraisBase + $commission);
+            $fraisParDestinataire[] = $frais;
+            $commissionsParDestinataire[] = $commission;
         }
         $totalFrais = array_sum($fraisParDestinataire);
         $totalADebiter = $totalMontant + $totalFrais;
@@ -325,6 +361,12 @@ class ClientController extends BaseController {
                 'montant'             => $montantPar,
                 'frais'               => $frais
             ];
+
+            if (!$memeOperateur && $operatorInfo) {
+                $operationData['est_autre_operateur'] = 1;
+                $operationData['id_autre_operateur'] = $operatorInfo['id_autre_operateur'];
+                $operationData['commission_supplementaire'] = $commissionsParDestinataire[$index] ?? 0.0;
+            }
 
             $operationModel->insert($operationData);
             $transfertsReussis++;

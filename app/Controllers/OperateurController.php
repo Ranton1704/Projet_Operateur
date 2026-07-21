@@ -118,6 +118,7 @@ public function enregistrerFrais() {
         'montant_min'       => $this->request->getPost('montant_min'),
         'montant_max'       => $this->request->getPost('montant_max'),
         'frais'             => $this->request->getPost('frais'),
+        'promotion_pourcentage' => $this->request->getPost('promotion_pourcentage') ?: 0,
     ];
 
     if ($id) {
